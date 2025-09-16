@@ -17,8 +17,8 @@ void ejemplo1::doButton()
 
 void ejemplo1::doCount()
 {
-	static int count = 0;
-	lcdNumber->display(count++);
+	static int cont = 0;
+	lcdNumber->display(cont++);
 }
 
 
