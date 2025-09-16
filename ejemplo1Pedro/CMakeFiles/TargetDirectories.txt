@@ -1,0 +1,9 @@
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/ejemplo1.dir
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/edit_cache.dir
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/rebuild_cache.dir
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/list_install_components.dir
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/install.dir
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/install/local.dir
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/install/strip.dir
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/ejemplo1_autogen_timestamp_deps.dir
+/home/usuario/Documentos/PedroJoseRobotica/ejemplo1.tar/ejemplo1/CMakeFiles/ejemplo1_autogen.dir
