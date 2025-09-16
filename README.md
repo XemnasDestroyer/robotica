@@ -1,2 +1,2 @@
-# robotica
-Projecto de robótica
+# Robotica
+Projecto de robótica 2025/26
