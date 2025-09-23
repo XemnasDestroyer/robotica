@@ -8,8 +8,13 @@ ejemplo1::ejemplo1(): Ui_Counter()
 	show();
 	connect(stopButton, SIGNAL(clicked()), this, SLOT(doStopButton()) );
 
-	connect(&timer, SIGNAL(timeout()), this, SLOT(doCount()) );
-	timer.start(1000);
+	//TIMER DE Qt
+	/*connect(&timer, SIGNAL(timeout()), this, SLOT(doCount()) );
+	timer.start(1000);*/
+
+	//TIMER DE C++
+	myTimer.connect(std::bind(&ejemplo1::doCount, this));
+	myTimer.start(1000);
 
 	connect(resetButton, SIGNAL(clicked()), this, SLOT(doResetButton()) );
 
@@ -19,10 +24,14 @@ ejemplo1::ejemplo1(): Ui_Counter()
 
 void ejemplo1::doStopButton()
 {
+	//PARA TIMER DE Qt
 	if (timer.isActive())
 		timer.stop();
 	else
 		timer.start(1000);
+
+	//PARA TIMER DE C++
+	myTimer.stop();
 }
 
 void ejemplo1::doCount()
@@ -40,6 +49,11 @@ void ejemplo1::doSlider(int interval)
 {
 	QString text = QString::number(interval) + "%";
 	label->setText(text);
+
+	//CAMBIA LA FRECUENCIA DEL TIMER DE Qt
 	timer.setInterval(1000 - interval*10);
+
+	//CAMBIA LA FRECUENCIA DEL TIMER DE C++
+	myTimer.setPeriod(1000 - interval*10);
 }
 

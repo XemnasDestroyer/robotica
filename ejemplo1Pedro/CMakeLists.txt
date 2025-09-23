@@ -22,7 +22,8 @@ ENDMACRO(QT_WRAP_UI)
 include_directories(${QT_INCLUDES} ${CMAKE_CURRENT_BINARY_DIR})
 
 # Sources set
-SET ( SOURCES  ${SOURCES}  ejemplo1.cpp  main.cpp )
+SET ( SOURCES  ${SOURCES}  ejemplo1.cpp  main.cpp
+        timer.h)
 # Headers set
 SET ( HEADERS  ${HEADERS} ejemplo1.h )
 

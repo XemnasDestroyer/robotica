@@ -2,6 +2,8 @@
 #define ejemplo1_H
 
 #include <QtGui>
+
+#include "timer.h"
 #include "ui_counterDlg.h"
 
 class ejemplo1 : public QWidget, public Ui_Counter
@@ -19,6 +21,7 @@ class ejemplo1 : public QWidget, public Ui_Counter
     private:
         int cont;
         QTimer timer;
+        Timer myTimer;
 };
 
 #endif // ejemplo1_H
