@@ -1,7 +1,6 @@
 #include <QtWidgets>
 #include "ejemplo1.h"
-#include <iostream>
-#include <tuple>
+#include "tests.h"
 
 int main(int argc, char** argv)
 {
@@ -11,6 +10,7 @@ int main(int argc, char** argv)
 
     ejemplo1 foo;
     foo.show();
+    tests();
 
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
