@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>508</width>
-    <height>273</height>
+    <height>502</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Counter</string>
   </property>
-  <widget class="QPushButton" name="button">
+  <widget class="QPushButton" name="stop">
    <property name="geometry">
     <rect>
      <x>80</x>
@@ -23,7 +23,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>STOP</string>
+    <string>STOP/START</string>
    </property>
   </widget>
   <widget class="QLCDNumber" name="lcdNumber">
@@ -34,6 +34,70 @@
      <width>411</width>
      <height>101</height>
     </rect>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="reset">
+   <property name="geometry">
+    <rect>
+     <x>80</x>
+     <y>270</y>
+     <width>351</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>RESET</string>
+   </property>
+  </widget>
+  <widget class="QSlider" name="slider">
+   <property name="geometry">
+    <rect>
+     <x>80</x>
+     <y>440</y>
+     <width>351</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="layoutDirection">
+    <enum>Qt::LayoutDirection::LeftToRight</enum>
+   </property>
+   <property name="autoFillBackground">
+    <bool>false</bool>
+   </property>
+   <property name="maximum">
+    <number>2000</number>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Orientation::Horizontal</enum>
+   </property>
+   <property name="invertedControls">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>220</x>
+     <y>470</y>
+     <width>63</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>TextLabel</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="reverse">
+   <property name="geometry">
+    <rect>
+     <x>80</x>
+     <y>360</y>
+     <width>351</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>REVERSE</string>
    </property>
   </widget>
  </widget>
