@@ -1,0 +1,46 @@
+/home/samumoga/Downloads/clion/clion-2025.2.1/bin/cmake/linux/x64/bin/cmake -DCMAKE_MAKE_PROGRAM=/home/samumoga/Downloads/clion/clion-2025.2.1/bin/ninja/linux/x64/ninja -DROBOCOMP_INSTALL_PATH=/home/samumoga/robocomp -G Ninja -S /home/samumoga/robocomp/components/chocachoca -B /home/samumoga/robocomp/components/chocachoca
+CMake Warning at CMakeLists.txt:5 (MESSAGE):
+  ROBOCOMP variable not set.  Using the default value:
+  /home/robocomp/robocomp
+
+
+CMake Warning (dev) at CMakeLists.txt:22 (INSTALL):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Using g++ 13 or higher, setting the C++23 standard.
+-- COMPILING WITH QT6
+-- Configuring for x86_64 architecture
+-- Could NOT find XKB (missing: XKB_LIBRARY XKB_INCLUDE_DIR) (Required is at least version "0.5.0")
+-- Ice version: 3.7.10
+-- Found the following Ice libraries:
+--   Ice++11 (required)
+--   IceStorm++11 (required)
+-- Found Ice: /usr/bin/slice2cpp (found version "3.7.10")
+-- RoboComp root is now set to /home/robocomp/robocomp//
+-- 
+-- Ice version: 3.7.10
+-- Found the following Ice libraries:
+--   Ice (required)
+--   IceStorm (required)
+-- The following Ice libraries were not found:
+--   IceUtil (optional)
+-- Found Ice: /usr/bin/slice2cpp (found version "3.7.10")
+-- Generating ICE files in directory: /home/samumoga/robocomp/components/chocachoca/generated
+-- Adding rule to generate /home/samumoga/robocomp/components/chocachoca/generated/GenericBase.ice from /home/robocomp/robocomp//interfaces/IDSLs/GenericBase.idsl
+-- Adding rule to generate /home/samumoga/robocomp/components/chocachoca/generated/Laser.ice from /home/robocomp/robocomp//interfaces/IDSLs/Laser.idsl
+-- Adding rule to generate /home/samumoga/robocomp/components/chocachoca/generated/DifferentialRobot.ice from /home/robocomp/robocomp//interfaces/IDSLs/DifferentialRobot.idsl
+-- BU ice=>h/cpp: Adding rule to generate GenericBase.h and GenericBase.cpp from /home/samumoga/robocomp/components/chocachoca/generated/GenericBase.ice
+-- BU ice=>h/cpp: Adding rule to generate Laser.h and Laser.cpp from /home/samumoga/robocomp/components/chocachoca/generated/Laser.ice
+-- BU ice=>h/cpp: Adding rule to generate DifferentialRobot.h and DifferentialRobot.cpp from /home/samumoga/robocomp/components/chocachoca/generated/DifferentialRobot.ice
+CMake Warning (dev) at generated/CMakeLists.txt:59 (INSTALL):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Configuring done (0.6s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/samumoga/robocomp/components/chocachoca
