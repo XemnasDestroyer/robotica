@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/samumoga/robocomp/components/chocachoca/cmake_install.cmake",
-		"/home/samumoga/robocomp/components/chocachoca/generated/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
