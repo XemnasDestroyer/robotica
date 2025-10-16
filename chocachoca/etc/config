@@ -1,5 +1,8 @@
-Proxies.OmniRobot = "OmniRobot:tcp -h localhost -p 10004"
-Proxies.Lidar3D = "lidar3d:tcp -h localhost -p 11988"
+# Proxies for required interfaces
+Proxies.Lidar3D = "lidar3d:tcp -h localhost -p 0"
+Proxies.OmniRobot = "omnirobot:tcp -h localhost -p 0"
+
+
 
 Period.Compute = 100
 Period.Emergency = 500
