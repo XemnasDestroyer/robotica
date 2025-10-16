@@ -33,6 +33,16 @@
 
 #include <genericworker.h>
 
+//Dibuja una ventana
+#include <abstract_graphic_viewer/abstract_graphic_viewer.h>
+
+enum class State {
+	IDLE,
+	FORWARD,
+	TURN,
+	FOLLOW_WALL,
+	SPIRAL
+};
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -67,6 +77,10 @@ public slots:
 	 */
 	void compute();
 
+	std::tuple<State, float, float> Forward(float& min_distance, float& angle, float& min_x, float& min_y);
+
+	void update_robot_position();
+
 	/**
 	 * \brief Handles the emergency state loop.
 	 */
@@ -83,12 +97,28 @@ public slots:
      */
 	int startup_check();
 
+	//graphics
+	void new_target_slot(QPointF p);
+
 private:
 
 	/**
      * \brief Flag indicating whether startup checks are enabled.
      */
 	bool startup_check_flag;
+
+	// graphics
+	QRectF dimensions;
+	AbstractGraphicViewer *viewer;
+	const int ROBOT_LENGTH = 400;
+	QGraphicsPolygonItem *robot_polygon;
+
+	std::optional<RoboCompLidar3D::TPoints> filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points);
+	void draw_lidar(const auto &points, QGraphicsScene *scene);
+
+	//movimiento
+	float spiral_vel = 300.0;
+
 
 signals:
 	//void customSignal();
