@@ -32,15 +32,18 @@
 //#define HIBERNATION_ENABLED
 
 #include <genericworker.h>
+#include <expected>
+#include <random>
+#include <chrono>
 
 //Dibuja una ventana
 #include <abstract_graphic_viewer/abstract_graphic_viewer.h>
 
 enum class State {
-	IDLE,
 	FORWARD,
 	TURN,
 	FOLLOW_WALL,
+    BACK,
 	SPIRAL
 };
 
@@ -76,9 +79,6 @@ public slots:
 	 * \brief Main compute loop of the worker.
 	 */
 	void compute();
-
-	std::tuple<State, float, float> Forward(float& min_distance, float& angle, float& min_x, float& min_y);
-
 	void update_robot_position();
 
 	/**
@@ -102,6 +102,29 @@ public slots:
 
 private:
 
+	struct Params
+	{
+		float ROBOT_LENGTH = 400;  // mm
+		float MAX_ADV_SPEED = 700; // mm/s
+		float FRONT_SECTION = M_PI/6;  // 30°
+		float SIDE_SECTION = M_PI/2; // 90°
+		float THETA = 1.0f;
+		int rot_direction = 1;
+
+		int forwardCount = 0;
+		int forwardTrigger = 50;
+
+		int turnCount = 0;
+		int turnTrigger = 17;
+
+        int backCount = 0;
+        int backTrigger = 10;
+
+		std::string LIDAR_NAME_LOW = "bpearl";
+		std::string LIDAR_NAME_HIGH = "helios";
+	};
+	Params params;
+
 	/**
      * \brief Flag indicating whether startup checks are enabled.
      */
@@ -110,14 +133,61 @@ private:
 	// graphics
 	QRectF dimensions;
 	AbstractGraphicViewer *viewer;
-	const int ROBOT_LENGTH = 400;
 	QGraphicsPolygonItem *robot_polygon;
-
+	std::chrono::steady_clock::time_point last_turn_time;
 	std::optional<RoboCompLidar3D::TPoints> filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points);
-	void draw_lidar(const auto &points, QGraphicsScene *scene);
+	void draw_lidar(const RoboCompLidar3D::TPoints& filtered_points, QGraphicsScene *scene);
+
+	// aux
+	std::expected<int, std::string> closest_lidar_index_to_given_angle(const RoboCompLidar3D::TPoints& points, float angle);
 
 	//movimiento
-	float spiral_vel = 300.0;
+	State current_state = State::SPIRAL;
+
+	/**
+    * @brief Comportamiento de espiral del robot.
+    * Disminuye gradualmente el ángulo de rotación para abrir la espiral.
+    * Si detecta un obstáculo en el rango [700, 730], cambia a FORWARD.
+    *
+    * @param points Vector de puntos Lidar 3D.
+    * @return std::tuple<State, float, float> Estado siguiente, velocidad de avance y rotación.
+    */
+	std::tuple<State,float,float> Spiral(const RoboCompLidar3D::TPoints &points);
+
+    /**
+    * @brief Comportamiento de avance recto del robot.
+    * Verifica si hay obstáculos en el centro del campo de visión.
+    *
+    * @param points Vector de puntos Lidar 3D.
+    * @return std::tuple<State, float, float> Estado siguiente, velocidad de avance y rotación.
+    */
+	std::tuple<State, float, float> Forward(const RoboCompLidar3D::TPoints &points);
+
+    /**
+    * @brief Comportamiento de seguimiento de pared.
+    * Busca el punto más cercano y evalúa si hay obstáculos frontales.
+    * Puede cambiar aleatoriamente a TURN o a otros estados según condiciones.
+    *
+    * @param points Vector de puntos Lidar 3D.
+    * @return std::tuple<State, float, float> Estado siguiente, velocidad de avance y rotación.
+    */
+	std::tuple<State, float, float> Follow_Wall(const RoboCompLidar3D::TPoints &points);
+
+    /**
+    * @brief Comportamiento de marcha atrás del robot.
+    * Retrocede durante un número limitado de ciclos antes de girar.
+    *
+    * @return std::tuple<State, float, float> Estado siguiente, velocidad negativa y rotación.
+    */
+    std::tuple<State, float, float> Back();
+
+    /**
+    * @brief Comportamiento de giro en el lugar.
+    * Gira durante un número limitado de ciclos antes de cambiar a espiral.
+    *
+    * @return std::tuple<State, float, float> Estado siguiente, velocidad cero y rotación.
+    */
+	std::tuple<State, float, float> Turn();
 
 
 signals:
@@ -125,3 +195,4 @@ signals:
 };
 
 #endif
+
