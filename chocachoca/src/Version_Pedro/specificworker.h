@@ -50,7 +50,6 @@ enum class State {
 	FORWARD,
 	TURN,
 	FOLLOW_WALL,
-    BACK,
 	SPIRAL
 };
 
@@ -113,26 +112,27 @@ private:
 	struct Params
 	{
 		float ROBOT_LENGTH = 400;  // mm
-		float MAX_ADV_SPEED = 800; // mm/s
+		float MAX_ADV_SPEED = 1000; // mm/s
+        float MAX_ROTATION_SPEED = 1.6f;
 		float FRONT_SECTION = M_PI/6;  // 30°
 		float SIDE_SECTION = M_PI/2; // 90°
-		float THETA = 1.5f;
 		int rot_direction = 1;
 
-		// Veces que se repite forward
-		int forwardCount = 0;
-		// Maximas repeticiones que puede tener forward (este numero fue elegido por ensayo y error)
-		int forwardTrigger = 50;
+		// Si previamente se ejecutó forward
+		bool previousForward = false;
+
+		// Si previamente se ejecutó followWall
+		bool previousFollowWall = false;
+		// Distancia a la que nos queremos mantener del muro
+		float followWallSafeDistance = 500;
 
 		// Veces que se repite turn
-		int turnCount = 0;
-		// Maximas repeticiones que puede tener turn (este numero fue elegido por ensayo y error)
-		int turnTrigger = 5;
+		bool previousTurn = false;
 
-		// Veces que se repite back
-        int backCount = 0;
-		// Maximas repeticiones que puede tener back (este numero fue elegido por ensayo y error)
-        int backTrigger = 7;
+		// Variables para calcular el tiempo que se ejecutan las acciones
+		std::chrono::steady_clock::time_point action_start_time;
+		// Maximo tiempo que una accion se va a ejecutar
+		std::chrono::milliseconds action_duration;
 
 		std::string LIDAR_NAME_LOW = "bpearl";
 		std::string LIDAR_NAME_HIGH = "helios";
@@ -205,24 +205,18 @@ private:
 	std::tuple<State, float, float, float> Follow_Wall(const RoboCompLidar3D::TPoints &points);
 
     /**
-    * @brief Comportamiento de marcha atrás del robot.
-    * Retrocede durante un número limitado de ciclos antes de girar.
-    *
-    * @return std::tuple<State, float, float> Estado siguiente, velocidad negativa y rotación.
-    */
-    std::tuple<State, float, float, float> Back();
-
-    /**
     * @brief Comportamiento de giro en el lugar.
     * Gira durante un número limitado de ciclos antes de cambiar a espiral.
     *
     * @return std::tuple<State, float, float> Estado siguiente, velocidad cero y rotación.
     */
-	std::tuple<State, float, float, float> Turn();
+	std::tuple<State, float, float, float> Turn(const RoboCompLidar3D::TPoints &points);
 
 	std::expected<RoboCompLidar3D::TPoint, std::string> closest_lidar_point(const RoboCompLidar3D::TPoints &points, bool front, int range);
 
-
+	void setMinDistanceUI(float distance);
+	void setFrontMinDistanceUI(float distance);
+	void setActionNameUI(std::string text);
 signals:
 	//void customSignal();
 };
