@@ -158,9 +158,8 @@ std::tuple<State, float, float, float> SpecificWorker::Spiral(const RoboCompLida
     setFrontMinDistanceUI(0);
 
     // Si hay algun punto cercano, pasa a forward
-    if (closestPoint.r < 770.0) {
+    if (closestPoint.r < 770.0)
         return {State::FORWARD, velocityX, velocityZ, rotation};
-    }
 
     // Muestra la accion espiral en la UI
     setActionNameUI("Espiral");
@@ -170,7 +169,7 @@ std::tuple<State, float, float, float> SpecificWorker::Spiral(const RoboCompLida
 
 std::tuple<State, float, float, float> SpecificWorker::Forward(const RoboCompLidar3D::TPoints &points) {
     // Resetea la velocidad de giro
-    params.MAX_ROTATION_SPEED = 1.7f;
+    params.MAX_ROTATION_SPEED = 1.6f;
 
     // Establece el valor de velocidad frontal
     float velocityX = 0.0f;
@@ -189,7 +188,6 @@ std::tuple<State, float, float, float> SpecificWorker::Forward(const RoboCompLid
 
     // Si el punto frontal más cercano está demasiado cerca, pasamos a seguir el obstáculo
     if (closestFrontPoint.r < 700.0) {
-        params.action_duration = std::chrono::milliseconds(10000);
         velocityZ = 0.0f;
         rotation = params.MAX_ROTATION_SPEED;
         return {State::FOLLOW_WALL, velocityX, velocityZ, rotation};
@@ -203,8 +201,9 @@ std::tuple<State, float, float, float> SpecificWorker::Forward(const RoboCompLid
         // Guarda el primer instante en el que se ejecuta
         params.action_start_time = std::chrono::steady_clock::now();
 
-        // Guarda la cantidad de tiempo que se va a repetir forward
-        params.action_duration = std::chrono::milliseconds(3500);
+        // Aleatoriza la cantidad de tiempo que se va a repetir forward
+        int rand = ((std::rand() % 4) + 1);
+        params.action_duration = std::chrono::milliseconds(1000 * rand);
 
         //Muestra la accion en la UI
         setActionNameUI("Avanzar");
@@ -252,13 +251,17 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
 
     // Si el punto frontal está demasiado cerca, pasa a girar
     if (closestFrontPoint.r < 700) {
+        //
+        params.previousFollowWall = false;
+        
         // Solo queremos un pequeño giro de turn, para ir ajustando
         params.previousTurn = true;
         // Para que valga 0
         params.action_start_time = std::chrono::steady_clock::now();
         params.action_duration = std::chrono::milliseconds(0);
 
-        return {State::TURN, 0.0f, 0.0f, rotation};
+        result = {State::TURN, 0.0f, 0.0f, rotation};
+        return result;
     }
 
     // Calcula el punto más cercano al robot
@@ -267,8 +270,11 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
     // Muestra el punto más cercano en la UI
     setMinDistanceUI(closestPoint.r);
 
+    // Si está cerca o (exclusivo ese o porque usamos XOR con ^) está a la izquierda
     // Si está lejos, se acerca
-    if (params.followWallSafeDistance < closestPoint.r)
+    if (params.followWallSafeDistance < closestPoint.r && closestPoint.phi <= 0)
+        velocityX *=-1;
+    else if (params.followWallSafeDistance > closestPoint.r && closestPoint.phi > 0)
         velocityX *=-1;
 
     // Calcula la diferencia entre la distancia en la que estamos y en la que queremos estar
@@ -279,7 +285,7 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
     /* Calcula la diferencia entre el angulo en el que estamos y en el que queremos estar (en paralelo). El calculo
      * al final se un porcentaje
      */
-    float rotationError = (std::abs(closestPoint.phi) / M_PI / 2);
+    float rotationError = (std::abs(closestPoint.phi) / M_PI/2);
     // Multiplicamos la velocidad de rotation. A más error, más velocidad de rotación.
     float rotationCorrected = rotation * std::abs(rotationError);
 
@@ -290,17 +296,13 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
     params.rot_direction = 1;
 
     // Dependiendo de en qué sector del robot está el punto cercano, gira hacia una dirección o hacia otra
-    if (-M_PI < closestPoint.phi && closestPoint.phi <= -M_PI / 2) {
-        result = {State::FOLLOW_WALL, velocityXCorrected, velocityZ, -rotationCorrected};
-    } else if (-M_PI / 2 < closestPoint.phi && closestPoint.phi <= 0) {
-        result = {State::FOLLOW_WALL, velocityXCorrected, velocityZ, rotationCorrected};
-    } else if (0 < closestPoint.phi && closestPoint.phi <= M_PI / 2) {
-        result = {State::FOLLOW_WALL, -velocityXCorrected, velocityZ, -rotationCorrected};
-    } else {
-        result = {State::FOLLOW_WALL, velocityXCorrected, velocityZ, rotationCorrected};
-    }
+    if (-M_PI < closestPoint.phi && closestPoint.phi <= -M_PI / 2)
+        params.rot_direction = -1;
+    else if (0 < closestPoint.phi && closestPoint.phi <= M_PI / 2)
+        params.rot_direction = -1;
 
     // Si es la primera vez que se ejecuta follow wall
+    result = {State::FOLLOW_WALL, velocityXCorrected, velocityZ, rotationCorrected};
     if(!params.previousFollowWall){
         // Actualiza la variable para indicar que ya se ejecutó follow wall antes
         params.previousFollowWall = true;
@@ -308,8 +310,9 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
         // Guarda el momento en el que comenzó follow wall
         params.action_start_time = std::chrono::steady_clock::now();
 
-        // Guarda la cantidad de tiempo que se va a repetir follow wall
-        params.action_duration = std::chrono::milliseconds(6000);
+        // Aleatoriza la duración del follow wall y guarda la cantidad de tiempo que se va a repetir
+        int rand = ((std::rand() % 10) + 1);
+        params.action_duration = std::chrono::milliseconds(1000 * rand);
 
         // Muestra la accion en la UI
         setActionNameUI("Seguir muro");
@@ -329,7 +332,7 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
             return result;
         }
 
-        // Si el tiempo es mayor, pasamos a forward
+        // Si el tiempo es mayor, pasamos a turn
         else{
             // Reestablece la variable previousfollowwall
             params.previousFollowWall = false;
@@ -337,10 +340,16 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
             // Establece turn a una cantidad suficiente para un giro de 90 grados aproximadamente
             params.action_duration = std::chrono::milliseconds(1000);
 
-            //Aleatoriza el giro
-            params.rot_direction*=-1;
+            // Calcula el giro que debe hacer para alejarse del muro
+            if (closestPoint.phi <= 0) {
+                params.rot_direction = 1;
+            } else{
+                params.rot_direction = -1;
+            }
 
-            return {State::TURN, 0.0f, 0.0f, rotation};
+            // Cambiamos el estado siguiente a SPIRAL
+            std::get<0>(result) = State::TURN;
+            return result;
         }
     }
 }
@@ -377,6 +386,7 @@ std::tuple<State, float, float, float> SpecificWorker::Turn(const RoboCompLidar3
 
         // Si el tiempo es mayor, pasamos a forward
         else{
+            setActionNameUI("Girar");
             params.previousTurn = false;
             return {State::FORWARD, velocityX, velocityZ, rotation};
         }
