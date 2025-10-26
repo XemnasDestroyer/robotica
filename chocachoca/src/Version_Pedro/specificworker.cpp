@@ -148,7 +148,7 @@ std::tuple<State, float, float, float> SpecificWorker::Spiral(const RoboCompLida
     float rotation = params.MAX_ROTATION_SPEED;
 
     // Disminuir rotación para abrir la espiral
-    params.MAX_ROTATION_SPEED = std::max(float(params.MAX_ROTATION_SPEED) - 0.007f, 0.0f);
+    params.MAX_ROTATION_SPEED = std::max(float(params.MAX_ROTATION_SPEED) - 0.006f, 0.0f);
 
     // Calcula el puntno más cercano a espiral
     RoboCompLidar3D::TPoint closestPoint = closest_lidar_point(points, false, 0).value();
@@ -158,7 +158,7 @@ std::tuple<State, float, float, float> SpecificWorker::Spiral(const RoboCompLida
     setFrontMinDistanceUI(0);
 
     // Si hay algun punto cercano, pasa a forward
-    if (closestPoint.r < 770.0)
+    if (closestPoint.r < 740.0)
         return {State::FORWARD, velocityX, velocityZ, rotation};
 
     // Muestra la accion espiral en la UI
@@ -180,7 +180,7 @@ std::tuple<State, float, float, float> SpecificWorker::Forward(const RoboCompLid
     //params.rot_direction = params.rot_direction * -1;
 
     // Calcula el punto más cercano de frente
-    RoboCompLidar3D::TPoint closestFrontPoint = closest_lidar_point(points, true, 70).value();
+    RoboCompLidar3D::TPoint closestFrontPoint = closest_lidar_point(points, true, 80).value();
 
     // Muestra los valores calculados en pantalla
     setMinDistanceUI(0);
@@ -202,7 +202,7 @@ std::tuple<State, float, float, float> SpecificWorker::Forward(const RoboCompLid
         params.action_start_time = std::chrono::steady_clock::now();
 
         // Aleatoriza la cantidad de tiempo que se va a repetir forward
-        int rand = ((std::rand() % 4) + 1);
+        int rand = ((std::rand() % 2) + 2);
         params.action_duration = std::chrono::milliseconds(1000 * rand);
 
         //Muestra la accion en la UI
@@ -242,38 +242,39 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
     float rotation = params.MAX_ROTATION_SPEED;
     std::tuple<State, float, float, float> result;
 
-    // Busca el punto front más cercano al robot
+    // Calcula el punto más cercano al robot y el más cercano de frente
+    RoboCompLidar3D::TPoint closestPoint = closest_lidar_point(points, false, 0).value();
     RoboCompLidar3D::TPoint closestFrontPoint = closest_lidar_point(points, true, 30).value();
 
-    // Muestra los puntos más cercano en la UI
-    setMinDistanceUI(0);
+    // Muestra los punto más cercano en la UI
+    setMinDistanceUI(closestPoint.r);
     setFrontMinDistanceUI(closestFrontPoint.r);
 
     // Si el punto frontal está demasiado cerca, pasa a girar
-    if (closestFrontPoint.r < 700) {
-        //
+    if (closestFrontPoint.r < 750) {
+        // Resetea el timer de follow wall
         params.previousFollowWall = false;
-        
+
         // Solo queremos un pequeño giro de turn, para ir ajustando
         params.previousTurn = true;
         // Para que valga 0
         params.action_start_time = std::chrono::steady_clock::now();
         params.action_duration = std::chrono::milliseconds(0);
 
+        if(closestPoint.phi <= 0)
+            params.rot_direction = 1;
+        else
+            params.rot_direction = -1;
+
         result = {State::TURN, 0.0f, 0.0f, rotation};
         return result;
     }
 
-    // Calcula el punto más cercano al robot
-    RoboCompLidar3D::TPoint closestPoint = closest_lidar_point(points, false, 0).value();
-
-    // Muestra el punto más cercano en la UI
-    setMinDistanceUI(closestPoint.r);
-
     // Si está cerca o (exclusivo ese o porque usamos XOR con ^) está a la izquierda
-    // Si está lejos, se acerca
     if (params.followWallSafeDistance < closestPoint.r && closestPoint.phi <= 0)
         velocityX *=-1;
+
+    // Si está lejos, se acerca
     else if (params.followWallSafeDistance > closestPoint.r && closestPoint.phi > 0)
         velocityX *=-1;
 
@@ -311,7 +312,7 @@ std::tuple<State, float, float, float> SpecificWorker::Follow_Wall(const RoboCom
         params.action_start_time = std::chrono::steady_clock::now();
 
         // Aleatoriza la duración del follow wall y guarda la cantidad de tiempo que se va a repetir
-        int rand = ((std::rand() % 10) + 1);
+        int rand = ((std::rand() % 6) + 1);
         params.action_duration = std::chrono::milliseconds(1000 * rand);
 
         // Muestra la accion en la UI
