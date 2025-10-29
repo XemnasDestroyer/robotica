@@ -17,10 +17,14 @@
  *    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "specificworker.h"
+#include "hungarian.h"
+#include "munkres.hpp"
+#include "ransac_line_detector.h"
+#include "room_detector.h"
 
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
-	this->startup_check_flag = startup_check;
+this->startup_check_flag = startup_check;
 	if(this->startup_check_flag)
 	{
 		this->startup_check();
@@ -30,6 +34,7 @@ SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, 
 		#ifdef HIBERNATION_ENABLED
 			hibernationChecker.start(500);
 		#endif
+
 		
 		// Example statemachine:
 		/***
@@ -55,6 +60,7 @@ SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, 
 			qWarning() << error;
 			throw error;
 		}
+		
 	}
 }
 
@@ -68,7 +74,14 @@ void SpecificWorker::initialize()
 {
     std::cout << "initialize worker" << std::endl;
 
-    //initializeCODE
+    // Carga el robot para que se dibuje
+    this->dimensions = QRectF(-6000, -3000, 12000, 6000);
+    viewer = new AbstractGraphicViewer(this->frame, this->dimensions);
+    viewer->show();
+    const auto rob = viewer->add_robot(params.ROBOT_LENGTH, params.ROBOT_LENGTH, 0, 190, QColor("Blue"));
+    robot_polygon = std::get<0>(rob);
+
+    connect(viewer, &AbstractGraphicViewer::new_mouse_coordinates, this, &SpecificWorker::new_target_slot);
 
     /////////GET PARAMS, OPEND DEVICES....////////
     //int period = configLoader.get<int>("Period.Compute") //NOTE: If you want get period of compute use getPeriod("compute")
@@ -77,10 +90,15 @@ void SpecificWorker::initialize()
 }
 
 
-
 void SpecificWorker::compute()
 {
-    std::cout << "Compute worker" << std::endl;
+    const auto data = lidar3d_proxy->getLidarData(params.LIDAR_NAME_LOW, 0, 2 * M_PI, 1);
+    if (data.points.empty()) {
+        qWarning() << "No points received";
+        return;
+    }
+    //  RoboCompLidar3D::TData points = lidar3d_proxy->getLidarData("lidar_name");
+
 	//computeCODE
 	//try
 	//{
@@ -97,7 +115,6 @@ void SpecificWorker::compute()
 }
 
 
-
 void SpecificWorker::emergency()
 {
     std::cout << "Emergency worker" << std::endl;
@@ -106,7 +123,6 @@ void SpecificWorker::emergency()
     //if (SUCCESSFUL) //The componet is safe for continue
     //  emmit goToRestore()
 }
-
 
 
 //Execute one when exiting to emergencyState
@@ -127,15 +143,14 @@ int SpecificWorker::startup_check()
 }
 
 
-
 /**************************************/
 // From the RoboCompLidar3D you can call this methods:
 // RoboCompLidar3D::TColorCloudData this->lidar3d_proxy->getColorCloudData()
-// RoboCompLidar3D::TData this->lidar3d_proxy->getLidarData(string name, float start, float len, int decimationDegreeFactor)
-// RoboCompLidar3D::TDataImage this->lidar3d_proxy->getLidarDataArrayProyectedInImage(string name)
+// RoboCompLidar3D::TData this->lidar3d_proxy->getLidarData(std::string name, float start, float len, int decimationDegreeFactor)
+// RoboCompLidar3D::TDataImage this->lidar3d_proxy->getLidarDataArrayProyectedInImage(std::string name)
 // RoboCompLidar3D::TDataCategory this->lidar3d_proxy->getLidarDataByCategory(TCategories categories, long timestamp)
-// RoboCompLidar3D::TData this->lidar3d_proxy->getLidarDataProyectedInImage(string name)
-// RoboCompLidar3D::TData this->lidar3d_proxy->getLidarDataWithThreshold2d(string name, float distance, int decimationDegreeFactor)
+// RoboCompLidar3D::TData this->lidar3d_proxy->getLidarDataProyectedInImage(std::string name)
+// RoboCompLidar3D::TData this->lidar3d_proxy->getLidarDataWithThreshold2d(std::string name, float distance, int decimationDegreeFactor)
 
 /**************************************/
 // From the RoboCompLidar3D you can use this types:
