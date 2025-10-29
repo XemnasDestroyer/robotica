@@ -32,7 +32,8 @@
 //#define HIBERNATION_ENABLED
 
 #include <genericworker.h>
-
+//Dibuja una ventana
+#include <abstract_graphic_viewer/abstract_graphic_viewer.h>
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -89,6 +90,11 @@ private:
      * \brief Flag indicating whether startup checks are enabled.
      */
 	bool startup_check_flag;
+
+	// graphics
+	QRectF dimensions;
+	AbstractGraphicViewer *viewer;
+	QGraphicsPolygonItem *robot_polygon;
 
 signals:
 	//void customSignal();

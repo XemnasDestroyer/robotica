@@ -78,7 +78,7 @@ void SpecificWorker::initialize()
     this->dimensions = QRectF(-6000, -3000, 12000, 6000);
     viewer = new AbstractGraphicViewer(this->frame, this->dimensions);
     viewer->show();
-    const auto rob = viewer->add_robot(params.ROBOT_LENGTH, params.ROBOT_LENGTH, 0, 190, QColor("Blue"));
+    const auto rob = viewer->add_robot(400, 400, 190, QColor("Blue"));
     robot_polygon = std::get<0>(rob);
 
     connect(viewer, &AbstractGraphicViewer::new_mouse_coordinates, this, &SpecificWorker::new_target_slot);
