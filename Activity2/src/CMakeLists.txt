@@ -6,3 +6,5 @@ LIST(APPEND SOURCES
 LIST(APPEND HEADERS
   ../src/specificworker.h
 )
+SET(LIBS ${LIBS} tbb)
+INCLUDE($ENV{ROBOCOMP}/cmake/modules/opencv4.cmake)
