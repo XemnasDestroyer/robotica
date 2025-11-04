@@ -26,8 +26,9 @@
 
 #ifndef SPECIFICWORKER_H
 #define SPECIFICWORKER_H
-
-
+#include "common_types.h"
+#include "hungarian.h"
+#include "room_detector.h"
 // If you want to reduce the period automatically due to lack of use, you must uncomment the following line
 //#define HIBERNATION_ENABLED
 
@@ -39,6 +40,36 @@
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
  */
+
+struct NominalRoom
+{
+   float width;  // mm
+   float length;
+   Corners corners;
+
+   explicit NominalRoom(const float width_=10000.f, const float length_=5000.f, Corners corners_ = {})
+       : width(width_), length(length_), corners(std::move(corners_)) {}
+
+   Corners transform_corners_to(const Eigen::Affine2d &transform) const
+   {
+       Corners transformed_corners;
+       for(const auto &[p, _, __] : corners)
+       {
+           auto ep = Eigen::Vector2d{p.x(), p.y()};
+           Eigen::Vector2d tp = transform * ep;
+           transformed_corners.emplace_back(QPointF{static_cast<float>(tp.x()), static_cast<float>(tp.y())}, 0.f, 0.f);
+       }
+       return transformed_corners;
+   }
+};
+
+NominalRoom room{10000.f, 5000.f,
+            {{QPointF{-5000.f, -2500.f}, 0.f, 0.f},
+             {QPointF{5000.f, -2500.f}, 0.f, 0.f},
+             {QPointF{5000.f, 2500.f}, 0.f, 0.f},
+             {QPointF{-5000.f, 2500.f}, 0.f, 0.f}}};
+
+
 class SpecificWorker : public GenericWorker
 {
 Q_OBJECT
@@ -86,7 +117,11 @@ public slots:
 	int startup_check();
 
 private:
-
+        AbstractGraphicViewer *viewer_room;  // new frame to show the room
+        Eigen::Affine2d robot_pose;          // rotation + translation
+        rc::Room_Detector room_detector;     // compute corners
+        rc::Hungarian hungarian;             // match corners
+        QGraphicsPolygonItem *room_draw_robot; // draw robot in the room
 	/**
      * \brief Flag indicating whether startup checks are enabled.
      */
