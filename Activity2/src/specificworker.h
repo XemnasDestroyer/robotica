@@ -32,6 +32,7 @@
 //#define HIBERNATION_ENABLED
 
 #include <genericworker.h>
+#include <common_types.h>
 //Dibuja una ventana
 #include <abstract_graphic_viewer/abstract_graphic_viewer.h>
 
