@@ -1,7 +1,7 @@
 import "Lidar3D.idsl";
 import "OmniRobot.idsl";
 
-Component chocachoca
+Component localiser
 {
    Communications
    {
