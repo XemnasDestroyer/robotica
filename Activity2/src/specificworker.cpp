@@ -83,6 +83,18 @@ void SpecificWorker::initialize()
 
     connect(viewer, &AbstractGraphicViewer::new_mouse_coordinates, this, &SpecificWorker::new_target_slot);
 
+	viewer_room = new AbstractGraphicViewer(this->frame_room, params.GRID_MAX_DIM);
+	auto [rr, re] = viewer_room->add_robot(params.ROBOT_WIDTH, params.ROBOT_LENGTH, 0, 100, QColor("Blue"));
+	robot_room_draw = rr;  
+	
+	// draw room in viewer_room
+	viewer_room->scene.addRect(params.GRID_MAX_DIM, QPen(Qt::black, 30));
+	viewer_room->show();
+	
+	// initialise robot pose
+  	robot_pose.setIdentity();
+ 	robot_pose.translate(Eigen::Vector2d(0.0,0.0));
+
     /////////GET PARAMS, OPEND DEVICES....////////
     //int period = configLoader.get<int>("Period.Compute") //NOTE: If you want get period of compute use getPeriod("compute")
     //std::string device = configLoader.get<std::string>("Device.name") 
@@ -92,28 +104,91 @@ void SpecificWorker::initialize()
 
 void SpecificWorker::compute()
 {
-    const auto data = lidar3d_proxy->getLidarData(params.LIDAR_NAME_LOW, 0, 2 * M_PI, 1);
+    // 1) Obtener datos del LIDAR
+    const auto data = lidar3d_proxy->getLidarData("pearl", 0, 2 * M_PI, 1);
     if (data.points.empty()) {
         qWarning() << "No points received";
         return;
     }
-    //  RoboCompLidar3D::TData points = lidar3d_proxy->getLidarData("lidar_name");
 
-	//computeCODE
-	//try
-	//{
-	//  camera_proxy->getYImage(0,img, cState, bState);
-    //    if (img.empty())
-    //        emit goToEmergency()
-	//  memcpy(image_gray.data, &img[0], m_width*m_height*sizeof(uchar));
-	//  searchTags(image_gray);
-	//}
-	//catch(const Ice::Exception &e)
-	//{
-	//  std::cout << "Error reading from Camera" << e << std::endl;
-	//}
+    // 2) Calcular las esquinas medidas con RANSAC desde el point cloud (mi)
+    Corners measured_corners = room_detector.compute_corners(data.points, nullptr);
+    if (measured_corners.empty()) {
+        qInfo() << "No measured corners found";
+        return;
+    }
+
+    // 3) Obtener las esquinas nominales del entorno (definidas en NominalRoom)
+    //    Estas están en el marco de referencia de la habitación (mundo) (ci)
+    const Corners &nominal_corners = room.corners;
+
+    // 4) Transformar las esquinas nominales al marco del robot
+    //    Regla: de room -> robot usamos la inversa de la pose actual (Cambio de marco de referencia)
+    Corners nominal_in_robot = room.transform_corners_to(robot_pose.inverse());
+
+    // 5) Aplicar el método húngaro para emparejar esquinas medidas con nominales (ci, mi)
+    const double MAX_CORNER_DIFF = 400.0; // umbral en mm (ajustable)
+    Match matches = hungarian.match(measured_corners, nominal_in_robot, MAX_CORNER_DIFF);
+
+    if (matches.empty()) {
+        qInfo() << "No matches after Hungarian";
+        return;
+    }
+
+    // 6) Construir matrices W y b
+    size_t M = matches.size();
+    if (M < 2) {
+        qInfo() << "Not enough matches to estimate pose";
+        return;
+    }
+
+    Eigen::MatrixXd W(2 * M, 3);
+    Eigen::VectorXd b(2 * M);
+
+    for (size_t i = 0; i < M; ++i)
+    {
+        const auto &[meas_c, nom_c, _] = matches[i];
+        const auto &[p_meas, __, ___]  = meas_c;
+        const auto &[p_nom, ____, _____] = nom_c;
+
+        double mx = p_meas.x();
+        double my = p_meas.y();
+        double cx = p_nom.x();
+        double cy = p_nom.y();
+
+        b(2 * i)     = cx - mx;
+        b(2 * i + 1) = cy - my;
+
+        W.block<1, 3>(2 * i, 0)     << 1.0, 0.0, -my;
+        W.block<1, 3>(2 * i + 1, 0) << 0.0, 1.0,  mx;
+    }
+
+    // 7) Resolver por mínimos cuadrados con pseudoinversa: \ r = (WᵀW)^(-1) Wᵀ b \
+    Eigen::Matrix3d WT_W = W.transpose() * W;
+    Eigen::Vector3d WT_b = W.transpose() * b;
+    Eigen::Vector3d r = WT_W.inverse() * WT_b;
+
+    std::cout << "Estimated r = [x=" << r(0) << ", y=" << r(1) << ", phi=" << r(2) << "]" << std::endl;
+    qInfo() << "--------------------";
+
+    if (r.array().isNaN().any()) {
+        qWarning() << "Invalid (NaN) values in pose correction";
+        return;
+    }
+
+    // 8) Actualizar la pose del robot con los nuevos valores estimados
+    robot_pose.translate(Eigen::Vector2d(r(0), r(1)));
+    robot_pose.rotate(r(2));
+
+    // 9) Actualizar el dibujo del robot en el entorno
+    robot_room_draw->setPos(robot_pose.translation().x(), robot_pose.translation().y());
+    double angle = std::atan2(robot_pose.rotation()(1, 0), robot_pose.rotation()(0, 0));
+    robot_room_draw->setRotation(angle);
+
+    qInfo() << "Pose updated -> x:" << robot_pose.translation().x()
+            << " y:" << robot_pose.translation().y()
+            << " theta:" << angle;
 }
-
 
 void SpecificWorker::emergency()
 {
