@@ -385,11 +385,22 @@ std::tuple<State, float, float, float> SpecificWorker::Turn(const RoboCompLidar3
             return {State::TURN, velocityX, velocityZ, rotation};
         }
 
-        // Si el tiempo es mayor, pasamos a forward
+        // Si el tiempo es mayor, pasamos a forward o follow_wall (según el punto cercano)
         else{
-            setActionNameUI("Girar");
             params.previousTurn = false;
-            return {State::FORWARD, velocityX, velocityZ, rotation};
+            roboCompLidar3D::TPoint closestFrontPoint = closest_lidar_point(points, true, 80).value();
+
+            if (closestFrontPoint.r < 700.0) {
+                setActionNameUI("Seguir muro");    
+                velocityZ = 0.0f;
+                rotation = params.MAX_ROTATION_SPEED;
+                return {State::FOLLOW_WALL, velocityX, velocityZ, rotation};
+            } else {
+                setActionNameUI("Avanzar");
+        	velocityZ = params.MAX_ADV_SPEED;
+                rotation = 0.0f;
+                return {State::FORWARD, velocityX, velocityZ, rotation};
+            }
         }
     }
 }
