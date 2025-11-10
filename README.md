@@ -28,7 +28,7 @@ robocompdsl chocachoca.cdsl .
 ```
 robocompdsl localiser.cdsl .
 ```
-Este comando generará varias carpetas, pero, antes de realizar la compilación del proyecto, es importante añadir al src/CMakeList.txt los archivos que vamos a "linkear". Por lo tanto, añade estas líneas en el archivo en caso de que no estarlo:
+Este comando generará varias carpetas, pero, antes de realizar la compilación del proyecto, es importante añadir al src/CMakeList.txt los archivos que vamos a "linkear". Por lo tanto, añade estas líneas en el archivo en caso de que no estén:
 ```
 # Sources set
 LIST(APPEND SOURCES
