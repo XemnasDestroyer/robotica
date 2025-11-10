@@ -1,4 +1,3 @@
-#define USE_QTGUI
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>guiDlg</class>
@@ -12,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Localiser</string>
+   <string>localiser</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_6">
    <item>
