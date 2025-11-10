@@ -1,6 +1,6 @@
-# Robotics
+# Proyecto de Robotica
 
-This is the repository for group 2 of the Robotics project for the 25/26 year.
+(En Ingles) This is the repository for group 2 of the Robotics project for the 25/26 year.
 
 # Instrucciones
 ## Ejecutar el script de python.
@@ -28,7 +28,27 @@ robocompdsl chocachoca.cdsl .
 ```
 robocompdsl localiser.cdsl .
 ```
-Este comando generará varias carpetas, entre ellas, la carpeta src y generated, las cuales usaremos más adelante.
+Este comando generará varias carpetas, pero, antes de realizar la compilación del proyecto, es importante añadir al src/CMakeList.txt los archivos que vamos a "linkear". Por lo tanto, añade estas líneas en el archivo en caso de que no estarlo:
+```
+# Sources set
+LIST(APPEND SOURCES
+    ../src/specificworker.cpp
+    ../src/hungarian.cpp
+    ../src/ransac_line_detector.cpp
+    ../src/room_detector.cpp
+)
+# Headers set
+LIST(APPEND HEADERS
+    ../src/specificworker.h
+    ../src/hungarian.h
+    ../src/ransac_line_detector.h
+    ../src/room_detector.h
+)
+SET(LIBS ${LIBS} tbb)
+LIST(APPEND LIBS ${LIBS})
+INCLUDE($ENV{ROBOCOMP}/cmake/modules/opencv4.cmake)
+```
+La carpeta src y generated, las cuales usaremos más adelante:
 1. Copia todo el contenido de la carpeta src del github a la carpeta src de tu equipo local.
 2. Copia todo el contenido de la carpeta generated del github a la carpeta generated de tu equipo local.
 3. Tras esto, ejecuta el siguiente comando:
@@ -42,7 +62,8 @@ make
 ```
 Esto creara el ejecutable del proyecto en la carpeta bin.
 
-Con esto, el proyecto está listo para ser lanzado. Recordemos que, antes de lanzar el proyecto, deberás ejecutar     
+Con esto, el proyecto está listo para ser lanzado. Recordemos que, antes de lanzar el proyecto, deberás ejecutar. En caso de emplear algún dispositivo externo, como
+un joystick, recuerda conectarlo antes de lanzar el script:
 ```
 python3 subcognitive.py sub.toml
 ```
@@ -50,7 +71,7 @@ Lanza ahora el proyecto, usando el siguiente comando:
 ```
 bin/localiser etc/config
 ```
-Si recibes algún error de tipo src/Ice, será por un problema de puertos. Deberás irte a etc/config y asegurarte que el lidar se ejecuta en el puerto 11989 y el omnirobot en el 10004
+Si recibes algún error de tipo src/Ice, será por un problema de puertos. Deberás irte a etc/config y asegurarte que el lidar se ejecuta en el puerto 11989 y el omnirobot en el 10004:
 ```
 # Proxies for required interfaces
 Proxies.Lidar3D = "lidar3d:tcp -h localhost -p 11989"
