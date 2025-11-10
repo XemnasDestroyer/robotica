@@ -15,6 +15,7 @@ Para hacerlo, ejecuta:
      python3 subcognitive.py sub.toml
 ```
 Depende de la versión que tengas de python3 deberas usar un prefijo distinto
-  El archivo sub.toml guarda los comandos que se van a ejecutar
+El archivo sub.toml guarda los comandos que se van a ejecutar
+
 
 
