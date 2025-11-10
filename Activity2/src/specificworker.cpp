@@ -95,7 +95,8 @@ void SpecificWorker::initialize()
     robot_room_draw = rr;
 
 	// draw room in viewer_room
-	viewer_room->scene.addRect(dimensions, QPen(Qt::black, 30));
+    QRectF dimensions2 = QRectF(-5000, -2500, 10000, 5000);
+	viewer_room->scene.addRect(dimensions2, QPen(Qt::black, 30));
 	viewer_room->show();
 	
 	// initialise robot pose
@@ -103,35 +104,28 @@ void SpecificWorker::initialize()
  	robot_pose.translate(Eigen::Vector2d(0.0,0.0));
 }
 
-
 void SpecificWorker::compute()
 {
     try {
-        const auto data = lidar3d_proxy->getLidarData(params.LIDAR_NAME_LOW, 0, 2 * M_PI, 1);
+        const auto data = lidar3d_proxy->getLidarDataWithThreshold2d(params.LIDAR_NAME_HIGH, 12000, 1);
         if (data.points.empty()) {
             qWarning() << "No points received";
             return;
         }
 
-        const auto filter_data = filter_min_distance_cppitertools(data.points);
-        if (!filter_data.has_value()) return;
+        /*const auto filter_data = filter_min_distance_cppitertools(data.points);
+        if (!filter_data.has_value()) return;*/
 
-        auto &points = filter_data.value();
-        auto filterPoints = filter_isolated_points(points, 200);
+        //auto &points = filter_data.value();
+        //auto filterPoints = filter_isolated_points(points, 200);
 
-        draw_lidar(points, &viewer->scene);
+        draw_lidar(data.points, &viewer->scene);
 
-        auto measured_corners = room_detector.compute_corners(data.points, nullptr);
+        Corners measured_corners = room_detector.compute_corners(data.points, nullptr);
 
-        auto robot_corners = room.transform_corners_to(robot_pose.inverse());
+        Corners nominal_corners = room.transform_corners_to(robot_pose.inverse());
 
-        auto match = hungarian.match(measured_corners, robot_corners, 1000);
-
-        for ( auto &m : match )
-        {
-            qDebug() << std::get<0>(std::get<0>(m)).x() << " - " << std::get<0>(std::get<0>(m)).y();
-            qDebug() << std::get<0>(std::get<1>(m)).x() << " - " << std::get<0>(std::get<1>(m)).y();
-        }
+        Match match = hungarian.match(measured_corners, nominal_corners, 1000);
 
         Eigen::MatrixXd W(match.size() * 2, 3);
         Eigen::VectorXd b(match.size() * 2);
@@ -158,7 +152,7 @@ void SpecificWorker::compute()
         const double angle = std::atan2(robot_pose.rotation()(1, 0), robot_pose.rotation()(0, 0));
         robot_room_draw->setRotation(qRadiansToDegrees(angle));
 
-        std::tuple<State, float, float, float> result;
+        /*std::tuple<State, float, float, float> result;
         switch (current_state) {
             case State::SPIRAL:
                 result = Spiral(filterPoints);
@@ -178,8 +172,8 @@ void SpecificWorker::compute()
         current_state = st;  // Actualizamos el estado global
 
         try {
-            omnirobot_proxy->setSpeedBase(velocityX, velocityZ, rotation * params.rot_direction);
-        } catch (const Ice::Exception &e) { std::cout << e << std::endl; }
+            //omnirobot_proxy->setSpeedBase(velocityX, velocityZ, rotation * params.rot_direction);
+        } catch (const Ice::Exception &e) { std::cout << e << std::endl; }*/
 
     } catch (const Ice::Exception &e) {
         std::cout << e.what() << std::endl;

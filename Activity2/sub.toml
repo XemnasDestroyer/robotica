@@ -10,11 +10,11 @@ ice_name = "Webots2Robocomp:tcp -h localhost -p 10006"
 #cmd = "bin/RicohOmni etc/config_wb"
 #ice_name = "Camera360RGB:tcp -h localhost -p 10097"
 
-#[[components]]
-#name = "helios"
-#cwd = "~/robocomp/components/robocomp-robolab/components/hardware/laser/lidar3D"
-#cmd = "bin/Lidar3D etc/config_helios_webots"
-#ice_name = "Lidar3D:tcp -h localhost -p 10098"
+[[components]]
+name = "helios"
+cwd = "~/robocomp/components/robocomp-robolab/components/hardware/laser/lidar3D"
+cmd = "bin/Lidar3D etc/config_helios_webots"
+ice_name = "Lidar3D:tcp -h localhost -p 10098"
 
 [[components]]
 name = "pearl"
