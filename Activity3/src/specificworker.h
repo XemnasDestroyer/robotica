@@ -47,11 +47,19 @@
 #include <execution>
 #include <cppitertools/enumerate.hpp>
 
-enum class State {
-	FORWARD,
+enum class StatelLocation {
+	LOCALISE,
+	GOTTO_ROOM_CENTER,
 	TURN,
-	FOLLOW_WALL,
-	SPIRAL
+	UPDATE_POSE
+};
+
+enum class StateDoor {
+	IDLE,
+	ORIENT_TO_ROOM,
+	SEARCH_DOORS,
+	ORIENT_TO_DOOR,
+	GOTO_DOOR
 };
 
 /**
@@ -112,6 +120,9 @@ public slots:
 	 */
 	void compute();
 
+	/**
+	 * \brief ________________________
+	 */
 	void update_robot_position();
 
 	/**
@@ -133,34 +144,16 @@ public slots:
 private:struct Params
     {
         float ROBOT_LENGTH = 400;  // mm
-		float MAX_ADV_SPEED = 1000*0.1; // mm/s
-		float MAX_ROTATION_SPEED = 1.6f;
+		float MAX_ADV_SPEED = 500; // mm/s
+		float MAX_ROTATION_SPEED = 0.2f;
         float FRONT_SECTION = M_PI/6;  // 30°
         float SIDE_SECTION = M_PI/2; // 90°
 		int rot_direction = 1;
-
-		// Si previamente se ejecutó forward
-		bool previousForward = false;
-
-		// Si previamente se ejecutó followWall
-		bool previousFollowWall = false;
-		// Distancia a la que nos queremos mantener del muro
-		float followWallSafeDistance = 500;
-
-		// Veces que se repite turn
-		bool previousTurn = false;
-
-		// Variables para calcular el tiempo que se ejecutan las acciones
-		std::chrono::steady_clock::time_point action_start_time;
-		// Maximo tiempo que una accion se va a ejecutar
-		std::chrono::milliseconds action_duration;
 
         std::string LIDAR_NAME_LOW = "bpearl";
         std::string LIDAR_NAME_HIGH = "helios";
     };
     Params params;
-	// Movimiento con el que comienza
-	State current_state = State::SPIRAL;
 
 	/**
      * @brief Flag indicating whether startup checks are enabled.
@@ -174,12 +167,59 @@ private:struct Params
 
 	AbstractGraphicViewer *viewer_room;  // new frame to show the room
 	Eigen::Affine2d robot_pose;          // rotation + translation
+	std::vector<NominalRoom> nominal_rooms {
+		NominalRoom(5500.f, 4000.f),
+		NominalRoom(3000.f, 4000.f)
+	};
 	rc::Room_Detector room_detector;     // compute corners
 	rc::Hungarian hungarian;             // match corners
 	QGraphicsPolygonItem *robot_room_draw; // draw robot in the room
 
-    // Estos métodos nos lo da pablo ya hechos en el doc
-    void draw_lidar(const RoboCompLidar3D::TPoints& filtered_points, QGraphicsScene *scene);
+	enum class STATE {
+		IDLE,
+		LOCALISE,
+		UPDATE_POSE,
+		SEARCH_DOORS,
+		ORIENT_TO_ROOM,
+		GOTO_ROOM_CENTER,
+		ORIENT_TO_DOOR,
+		GOTO_DOOR,
+		TURN
+	};
+
+	inline const char* to_string(const STATE s) const
+	{
+		switch (s)
+		{
+			case STATE::IDLE: return "IDLE";
+			case STATE::LOCALISE: return "LOCALISE";
+			case STATE::UPDATE_POSE: return "UPDATE_POSE";
+			case STATE::SEARCH_DOORS: return "SEARCH_DOORS";
+			case STATE::ORIENT_TO_ROOM: return "ORIENT_TO_ROOM";
+			case STATE::GOTO_ROOM_CENTER: return "GOTO_ROOM_CENTER";
+			case STATE::ORIENT_TO_DOOR: return "ORIENT_TO_DOOR";
+			case STATE::GOTO_DOOR: return "GOTO_DOOR";
+			case STATE::TURN: return "TURN";
+			default: return "UNKNOWN";
+		}
+	}
+
+	STATE state = STATE::LOCALISE;
+
+	std::tuple<STATE, float, float> goto_door(const RoboCompLidar3D::TPoints &points);
+	std::tuple<STATE, float, float> orient_to_door(const RoboCompLidar3D::TPoints &points);
+	std::tuple<STATE, float, float> orient_to_room(const RoboCompLidar3D::TPoints &points);
+	std::tuple<STATE, float, float> localise(const Match &match, const RoboCompLidar3D::TPoints &points);
+	std::tuple<STATE, float, float> search_doors(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene);
+	std::tuple<STATE, float, float> goto_room_center(const RoboCompLidar3D::TPoints &points);
+	std::tuple<STATE, float, float> update_pose(const Corners &corners, const Match &match);
+	std::tuple<STATE, float, float> turn(const RoboCompLidar3D::TPoints &points);
+
+	// Lógica general de control de estados
+	std::tuple<STATE, float, float> process_state(const RoboCompLidar3D::TPoints &data,
+												  const Corners &corners,
+												  const Match &match,
+												  AbstractGraphicViewer *viewer);
 
     /**
 	* @brief Calculates the index of the closest lidar point to the given angle.
@@ -196,50 +236,13 @@ private:struct Params
 	*/
     std::expected<int, std::string> closest_lidar_index_to_given_angle(const RoboCompLidar3D::TPoints& points, float angle);
 
-    std::optional<RoboCompLidar3D::TPoints> filter_min_distance_cppitertools(const RoboCompLidar3D::TPoints& points);
+	// std::expected<RoboCompLidar3D::TPoint, std::string> closest_lidar_point(const RoboCompLidar3D::TPoints &points, bool front, int range);
+
+	void draw_lidar(const RoboCompLidar3D::TPoints& filtered_points, std::optional<Eigen::Vector2d> center, QGraphicsScene *scene);
 
     // Filter isolated points: keep only points with at least one neighbour within distance d (mm)
     RoboCompLidar3D::TPoints filter_isolated_points(const RoboCompLidar3D::TPoints &points, float d);
 
-	// Estos métodos ya son nuestros
-	/**
-    * @brief Comportamiento de espiral del robot.
-    * Disminuye gradualmente el ángulo de rotación para abrir la espiral.
-    * Si detecta un obstáculo en el rango [700, 730], cambia a FORWARD.
-    *
-    * @param points Vector de puntos Lidar 3D.
-    * @return std::tuple<State, float, float> Estado siguiente, velocidad de avance y rotación.
-    */
-	std::tuple<State,float,float,float> Spiral(const RoboCompLidar3D::TPoints &points);
-
-	/**
-    * @brief Comportamiento de avance recto del robot.
-    * Verifica si hay obstáculos en el centro del campo de visión.
-    *
-    * @param points Vector de puntos Lidar 3D.
-    * @return std::tuple<State, float, float> Estado siguiente, velocidad de avance y rotación.
-    */
-	std::tuple<State, float, float, float> Forward(const RoboCompLidar3D::TPoints &points);
-
-	/**
-    * @brief Comportamiento de seguimiento de pared.
-    * Busca el punto más cercano y evalúa si hay obstáculos frontales.
-    * Puede cambiar aleatoriamente a TURN o a otros estados según condiciones.
-    *
-    * @param points Vector de puntos Lidar 3D.
-    * @return std::tuple<State, float, float> Estado siguiente, velocidad de avance y rotación.
-    */
-	std::tuple<State, float, float, float> Follow_Wall(const RoboCompLidar3D::TPoints &points);
-
-	/**
-    * @brief Comportamiento de giro en el lugar.
-    * Gira durante un número limitado de ciclos antes de cambiar a espiral.
-    *
-    * @return std::tuple<State, float, float> Estado siguiente, velocidad cero y rotación.
-    */
-	std::tuple<State, float, float, float> Turn(const RoboCompLidar3D::TPoints &points);
-
-	std::expected<RoboCompLidar3D::TPoint, std::string> closest_lidar_point(const RoboCompLidar3D::TPoints &points, bool front, int range);
 signals:
 	//void customSignal();
 };
