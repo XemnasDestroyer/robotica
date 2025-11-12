@@ -71,11 +71,12 @@ Lanza ahora el proyecto, usando el siguiente comando:
 ```
 bin/localiser etc/config
 ```
-Si recibes algún error de tipo src/Ice, será por un problema de puertos. Deberás irte a etc/config y asegurarte que el lidar se ejecuta en el puerto 11989 y el omnirobot en el 10004:
+Si recibes algún error de tipo src/Ice, será por un problema de puertos. Deberás irte a etc/config y asegurarte que el lidar se ejecuta en el puerto 11989, el omnirobot en el 10004, y la cámara360 en el 10098:
 ```
 # Proxies for required interfaces
 Proxies.Lidar3D = "lidar3d:tcp -h localhost -p 11989"
 Proxies.OmniRobot = "omnirobot:tcp -h localhost -p 10004"
+Proxies.Camera360RGB = "camera360rgb:tcp -h localhost -p 10098"
 ```
 
 
