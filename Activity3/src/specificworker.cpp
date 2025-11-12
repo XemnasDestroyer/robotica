@@ -75,6 +75,11 @@ this->startup_check_flag = startup_check;
 	}
 }
 
+void SpecificWorker::JoystickAdapter_sendData(RoboCompJoystickAdapter::TData data)
+{
+
+}
+
 SpecificWorker::~SpecificWorker()
 {
 	std::cout << "Destroying SpecificWorker" << std::endl;
@@ -258,8 +263,8 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &filtered_points,
     }
 
     // Sección frontal
-    auto offset_begin = closest_lidar_index_to_given_angle(filtered_points, -params.FRONT_SECTION);
-    auto offset_end = closest_lidar_index_to_given_angle(filtered_points, params.FRONT_SECTION);
+    auto offset_begin = closest_lidar_index_to_given_angle(filtered_points, -params.LIDAR_FRONT_SECTION);
+    auto offset_end = closest_lidar_index_to_given_angle(filtered_points, params.LIDAR_FRONT_SECTION);
     if (!offset_begin || !offset_end) return;
 
     int ob = std::clamp(offset_begin.value(), 0, static_cast<int>(filtered_points.size()) - 1);
@@ -277,8 +282,8 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &filtered_points,
     items.push_back(ditem);
 
     // Puntos laterales
-    auto wall_right = closest_lidar_index_to_given_angle(filtered_points, params.SIDE_SECTION);
-    auto wall_left = closest_lidar_index_to_given_angle(filtered_points, -params.SIDE_SECTION);
+    auto wall_right = closest_lidar_index_to_given_angle(filtered_points, params.LIDAR_RIGHT_SIDE_SECTION);
+    auto wall_left = closest_lidar_index_to_given_angle(filtered_points, -params.LIDAR_RIGHT_SIDE_SECTION);
     if (!wall_right || !wall_left) return;
 
     auto right_point = filtered_points[wall_right.value()];
@@ -296,8 +301,8 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &filtered_points,
     items.push_back(item_line);
 
     // Líneas frontales
-    auto res_right = closest_lidar_index_to_given_angle(filtered_points, params.FRONT_SECTION);
-    auto res_left = closest_lidar_index_to_given_angle(filtered_points, -params.FRONT_SECTION);
+    auto res_right = closest_lidar_index_to_given_angle(filtered_points, params.LIDAR_FRONT_SECTION);
+    auto res_left = closest_lidar_index_to_given_angle(filtered_points, -params.LIDAR_FRONT_SECTION);
     if (!res_right || !res_left) return;
 
     float right_length = filtered_points[res_right.value()].r;
@@ -305,15 +310,15 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &filtered_points,
     float angle1 = filtered_points[res_left.value()].phi;
     float angle2 = filtered_points[res_right.value()].phi;
 
-    QLineF line_left{QPointF(0.f, 0.f),
+    /*QLineF line_left{QPointF(0.f, 0.f),
                      robot_polygon->mapToScene(left_length * sin(angle1), left_length * cos(angle1))};
     QLineF line_right{QPointF(0.f, 0.f),
-                      robot_polygon->mapToScene(right_length * sin(angle2), right_length * cos(angle2))};
+                      robot_polygon->mapToScene(right_length * sin(angle2), right_length * cos(angle2))};*/
 
-    auto line1 = scene->addLine(line_left, QPen(Qt::blue, 10));
+    /*auto line1 = scene->addLine(line_left, QPen(Qt::blue, 10));
     auto line2 = scene->addLine(line_right, QPen(Qt::red, 10));
     items.push_back(line1);
-    items.push_back(line2);
+    items.push_back(line2);*/
 }
 
 // Máquina de estados y lógica de control
@@ -372,18 +377,18 @@ SpecificWorker::RetVal SpecificWorker::process_state(const RoboCompLidar3D::TPoi
 SpecificWorker::RetVal SpecificWorker::goto_door(const RoboCompLidar3D::TPoints &points) {
 
 }
+
 SpecificWorker::RetVal SpecificWorker::orient_to_door(const RoboCompLidar3D::TPoints &points) {
 
 }
+
 SpecificWorker::RetVal SpecificWorker::cross_door(const RoboCompLidar3D::TPoints &points) {
 
 }
-SpecificWorker::RetVal SpecificWorker::localise(const Match &match) {
 
-    // if(estoyCentro)
-
-
-    Corners measured_corners = room_detector.compute_corners(data.points, nullptr);
+SpecificWorker::RetVal SpecificWorker::localise(const Match &match)
+{
+    /*Corners measured_corners = room_detector.compute_corners(data.points, nullptr);
 
     Corners nominal_corners = room.transform_corners_to(robot_pose.inverse());
 
@@ -411,20 +416,23 @@ SpecificWorker::RetVal SpecificWorker::localise(const Match &match) {
 
     // else
 
-    // cambiar GOTTO_ROOM_CENTER
+    // cambiar GOTTO_ROOM_CENTER*/
 
 }
+
 SpecificWorker::RetVal SpecificWorker::goto_room_center(const RoboCompLidar3D::TPoints &points) {
 
 }
+
 SpecificWorker::RetVal SpecificWorker::update_pose(const Corners &corners, const Match &match) {
-    robot_pose.translate(Eigen::Vector2d(r(0), r(1)));
+    /*robot_pose.translate(Eigen::Vector2d(r(0), r(1)));
     robot_pose.rotate(r[2]);
 
     robot_room_draw->setPos(robot_pose.translation().x(), robot_pose.translation().y());
     const double angle = std::atan2(robot_pose.rotation()(1, 0), robot_pose.rotation()(0, 0));
-    robot_room_draw->setRotation(qRadiansToDegrees(angle));
+    robot_room_draw->setRotation(qRadiansToDegrees(angle));*/
 }
+
 SpecificWorker::RetVal SpecificWorker::turn(const Corners &corners) {
 
 }
@@ -441,8 +449,19 @@ std::expected<int, std::string> SpecificWorker::closest_lidar_index_to_given_ang
     if (res != points.end())
         return std::distance(points.begin(), res);
     else
-        return std::unexpected("No closest value found in method <closest_lidar_index_to_given_angle>")
+        return std::unexpected("No closest value found in method <closest_lidar_index_to_given_angle>");
 }
+
+bool SpecificWorker::update_robot_pose(const Corners &corners, const Match &match)
+{
+
+}
+
+void SpecificWorker::move_robot(float adv, float rot, float max_match_error)
+{
+
+}
+
 void SpecificWorker::print_match(const Match &match, const float error) const {
 
 }

@@ -37,6 +37,7 @@
 #include <random>
 #include <doublebuffer/DoubleBuffer.h>
 #include "time_series_plotter.h"
+#include <cppitertools/itertools.hpp>
 
 #ifdef emit
 #undef emit
