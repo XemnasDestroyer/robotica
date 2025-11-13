@@ -16,51 +16,30 @@
 
 Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
 {
-    Doors detected_doors;
+    Doors doors;
+    if (points.size() < 2)
+        return doors;
 
-    if (points.size() < 3) return detected_doors; // necesitamos al menos 3 puntos para la ventana deslizante
+    std::vector<RoboCompLidar3D::TPoint> peaks;
 
-    // Parámetros: ventana angular máxima para considerar que hay un marco de puerta
-    const float max_angle_span = M_PI / 4.0f; // 45 grados aprox.
-    const float min_door_width = 500.f; // ancho mínimo de puerta en mm
-    const float max_door_width = 1500.f; // ancho máximo de puerta en mm
+    for (auto &&pair : iter::sliding_window(points, 2)) {
+        const auto &p1 = pair[0];
+        const auto &p2 = pair[1];
 
-    // Recorremos los puntos usando una ventana deslizante de 3 elementos
-    for (auto win : iter::sliding_window(points, 3))
-    {
-        const auto &p1 = win[0];
-        const auto &p2 = win[1];
-        const auto &p3 = win[2];
-
-        // Calculamos ancho candidato de puerta
-        Eigen::Vector2f vec1(p1.x, p1.y);
-        Eigen::Vector2f vec3(p3.x, p3.y);
-        float door_width = (vec3 - vec1).norm();
-
-        if (door_width < min_door_width || door_width > max_door_width)
-            continue; // descartamos si no está dentro de rango
-
-        // Calculamos diferencias angulares
-        float angle1 = p1.phi;
-        float angle3 = p3.phi;
-        float angle_span = std::abs(angle3 - angle1);
-        if (angle_span > max_angle_span) continue; // descartamos si angulo demasiado grande
-
-        // Creamos el objeto Door y lo añadimos a la lista
-        detected_doors.emplace_back(
-            Eigen::Vector2f(p1.x, p1.y), angle1,
-            Eigen::Vector2f(p3.x, p3.y), angle3
-        );
-
-        // Opcional: dibujar la puerta en la escena
-        if (scene)
-        {
-            QPen pen(Qt::yellow, 4);
-            scene->addLine(p1.x, p1.y, p3.x, p3.y, pen);
-        }
+        float diff = std::fabs(p1.distance2d - p2.distance2d);
+        if (diff > 1000.f)
+            peaks.push_back((p1.distance2d < p2.distance2d) ? p1 : p2);
     }
 
-    return detected_doors;
+    if (scene) {
+        QBrush yellowBrush(Qt::yellow);
+        QPen yellowPen(Qt::yellow);
+
+        for (const auto &p : peaks) {
+            auto item = scene->addRect(-60, -60, 120, 120, yellowPen, yellowBrush);
+            item->setPos(p.x, p.y);
+        }
+    }
 }
 
 // Method to use the Doors vector to filter out the LiDAR points that como from a room outside the current one
