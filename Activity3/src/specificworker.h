@@ -95,6 +95,7 @@ class SpecificWorker final : public GenericWorker
             float LIDAR_RIGHT_SIDE_SECTION = M_PI/3; // rads, 90 degrees
             float LIDAR_LEFT_SIDE_SECTION = -M_PI/3; // rads, 90 degrees
             float WALL_MIN_DISTANCE = ROBOT_WIDTH*1.2;
+
             // match error correction
             float MATCH_ERROR_SIGMA = 150.f; // mm
             float DOOR_REACHED_DIST = 300.f;
@@ -113,7 +114,22 @@ class SpecificWorker final : public GenericWorker
             float RELOCAL_DONE_COST = 500.f;
             float RELOCAL_DONE_MATCH_MAX_ERROR = 1000.f;
         };
-        Params params;
+               Params params;
+
+        struct ControllerParams
+        {
+            float Kp_angular = 1.0f;      // Ganancia proporcional para rotación
+            float Kd_angular = 0.1f;      // Ganancia derivativa para rotación
+            float v_max = 800.0f;         // Velocidad máxima en mm/s
+            float sigma_theta = M_PI/4;   // 45 grados en radianes para freno angular
+            float d_stop = 500.0f;        // Distancia de frenado en mm
+            float k_steepness = 0.01f;    // Pendiente del freno de distancia
+        };
+        ControllerParams controller_params;
+
+        bool localised = false;
+        float prev_angle_error = 0.0f;
+        std::chrono::steady_clock::time_point last_controller_time;
 
         // viewer
         AbstractGraphicViewer *viewer, *viewer_room;
@@ -128,31 +144,37 @@ class SpecificWorker final : public GenericWorker
         rc::Hungarian hungarian;
 
         // state machine
-        enum class STATE {GOTO_DOOR, ORIENT_TO_DOOR, LOCALISE, GOTO_ROOM_CENTER, TURN, IDLE, CROSS_DOOR};
+        enum class STATE {GOTO_DOOR, ORIENT_TO_DOOR, LOCALISE, UPDATE_POSE, SEARCH_DOORS, GOTO_ROOM_CENTER, TURN, IDLE, CROSS_DOOR};
         inline const char* to_string(const STATE s) const
         {
             switch(s) {
                 case STATE::IDLE:               return "IDLE";
                 case STATE::LOCALISE:           return "LOCALISE";
                 case STATE::GOTO_DOOR:          return "GOTO_DOOR";
+                case STATE::UPDATE_POSE:        return "UPDATE_POSE";
                 case STATE::TURN:               return "TURN";
                 case STATE::ORIENT_TO_DOOR:     return "ORIENT_TO_DOOR";
                 case STATE::GOTO_ROOM_CENTER:   return "GOTO_ROOM_CENTER";
                 case STATE::CROSS_DOOR:         return "CROSS_DOOR";
+                case STATE::SEARCH_DOORS:       return "SEARCH_DOORS";
                 default:                        return "UNKNOWN";
             }
         }
         STATE state = STATE::LOCALISE;
         using RetVal = std::tuple<STATE, float, float>;
+
         RetVal goto_door(const RoboCompLidar3D::TPoints &points);
         RetVal orient_to_door(const RoboCompLidar3D::TPoints &points);
         RetVal cross_door(const RoboCompLidar3D::TPoints &points);
-        RetVal localise(const Match &match);
-        RetVal goto_room_center(const RoboCompLidar3D::TPoints &points);
-        RetVal update_pose(const Corners &corners, const Match &match);
-        RetVal turn(const Corners &corners);
-        RetVal process_state(const RoboCompLidar3D::TPoints &data, const Corners &corners, const Match &match, AbstractGraphicViewer *viewer);
+        RetVal localise(const Match &match, const std::optional<Eigen::Vector2f> &center_opt);
+        RetVal goto_room_center(const std::optional<Eigen::Vector2f> &center_opt, const Match &match);
+        RetVal update_pose(const Match &match);
+        RetVal turn(const Match &match);
 
+        RetVal process_state(const RoboCompLidar3D::TPoints &data,
+                                                 const Match &match,
+                                                 const std::optional<Eigen::Vector2f> &center_opt,
+                                                 AbstractGraphicViewer *viewer);
         // draw
         void draw_lidar(const RoboCompLidar3D::TPoints &filtered_points, std::optional<Eigen::Vector2d> center, QGraphicsScene *scene);
 
@@ -183,16 +205,11 @@ class SpecificWorker final : public GenericWorker
         // timing
         std::chrono::time_point<std::chrono::high_resolution_clock> last_time = std::chrono::high_resolution_clock::now();
 
-        // relocalization
-        bool relocal_centered = false;
-        bool localised = false;
-
-        bool update_robot_pose(const Corners &corners, const Match &match);
+        bool update_robot_pose(const Match &match);
         void move_robot(float adv, float rot, float max_match_error);
         Eigen::Vector3d solve_pose(const Corners &corners, const Match &match);
         void predict_robot_pose();
         std::tuple<float, float> robot_controller(const Eigen::Vector2f &target);
-
 
 signals:
         //void customSignal();
