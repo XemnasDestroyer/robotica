@@ -404,11 +404,11 @@ SpecificWorker::RetVal SpecificWorker::localise(const Match &match, const std::o
 }
 
 SpecificWorker::RetVal SpecificWorker::goto_room_center(const std::optional<Eigen::Vector2f> &center_opt, const Match &match) {
-    float adv_speed = 0.0f;
+    float adv_speed = params.MAX_ADV_SPEED;
     float rot_speed = 0.0f;
     STATE next_state = STATE::GOTO_ROOM_CENTER;
 
-    if (center_opt.has_value()) {
+    /*if (center_opt.has_value()) {
         // 🔄 MOVING... NOT CENTERED → Usar controlador avanzado
         std::tie(adv_speed, rot_speed) = robot_controller(center_opt.value());
 
@@ -444,7 +444,7 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center(const std::optional<Eige
     } else {
         qWarning() << "Center not found → LOCALISE";
         next_state = STATE::LOCALISE;
-    }
+    }*/
 
     return {next_state, adv_speed, rot_speed};
 }
@@ -594,7 +594,10 @@ SpecificWorker::RetVal SpecificWorker::cross_door(const RoboCompLidar3D::TPoints
 
 void SpecificWorker::move_robot(float adv, float rot, float max_match_error)
 {
-
+    // Enviar velocidades al robot
+    try {
+        omnirobot_proxy->setSpeedBase(0.0f, adv, rot);
+    } catch (const Ice::Exception &e) { std::cout << e << std::endl; }
 }
 
 void SpecificWorker::print_match(const Match &match, const float error) const {
@@ -746,8 +749,11 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &filtered_points,
 
 // Lectura de datos y filtrado
 RoboCompLidar3D::TPoints SpecificWorker::read_data() {
+    const auto data = lidar3d_proxy->getLidarDataWithThreshold2d(params.LIDAR_NAME_HIGH, 12000, 1);
 
+    return data.points;
 }
+
 RoboCompLidar3D::TPoints SpecificWorker::filter_same_phi(const RoboCompLidar3D::TPoints &points) {
 
 }
