@@ -2,6 +2,7 @@
 LIST(APPEND SOURCES
     ../src/door_detector.cpp
     ../src/hungarian.cpp
+    ../src/pointcloud_center_estimator.cpp
     ../src/qcustomplot.cpp
     ../src/ransac_line_detector.cpp
     ../src/room_detector.cpp
@@ -16,6 +17,7 @@ LIST(APPEND HEADERS
     ../src/image_processor.h
     ../src/munkres.h
     ../src/nominal_room.h
+    ../src/pointcloud_center_estimator.h
     ../src/hungarian.h
     ../src/qcustomplot.h
     ../src/ransac_line_detector.h
