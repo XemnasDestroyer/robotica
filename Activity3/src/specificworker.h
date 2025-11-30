@@ -37,7 +37,6 @@
 #include <random>
 #include <doublebuffer/DoubleBuffer.h>
 #include "time_series_plotter.h"
-#include <map>
 #include <cppitertools/itertools.hpp>
 
 #ifdef emit
@@ -57,7 +56,8 @@
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
  */
-class SpecificWorker final : public GenericWorker {
+class SpecificWorker final : public GenericWorker
+{
     Q_OBJECT
     public:
         /**
@@ -166,24 +166,6 @@ class SpecificWorker final : public GenericWorker {
         STATE state = STATE::GOTO_ROOM_CENTER;
         using RetVal = std::tuple<STATE, float, float>;
 
-<<<<<<< HEAD
-=======
-        RetVal goto_door();
-        RetVal orient_to_door();
-        RetVal cross_door(const RoboCompLidar3D::TPoints &points);
-        RetVal goto_room_center(std::optional<Eigen::Vector2f> &center_opt);
-        RetVal update_pose(const Match &match);
-        RetVal turn(const Corners &corners);
-
-        RetVal process_state(const RoboCompLidar3D::TPoints &data,
-                                                 const Match &match,
-                                                 std::optional<Eigen::Vector2f> &center_opt,
-                                                 const Corners &corners,
-                                                 AbstractGraphicViewer *viewer);
-        // draw
-        void draw_lidar(const RoboCompLidar3D::TPoints &filtered_points, std::optional<Eigen::Vector2d> center, QGraphicsScene *scene);
-
->>>>>>> c51fa747c0c13b5c7f071906e525a1a8b24bf438
         // aux
         RoboCompLidar3D::TPoints read_data();
 
@@ -222,10 +204,7 @@ class SpecificWorker final : public GenericWorker {
         // doors
         DoorDetector door_detector;
         Doors doors;
-<<<<<<< HEAD
         QColor color = Qt::red;
-=======
->>>>>>> c51fa747c0c13b5c7f071906e525a1a8b24bf438
 
         // image processor
         rc::ImageProcessor image_processor;
@@ -237,7 +216,7 @@ class SpecificWorker final : public GenericWorker {
         void move_robot(float adv, float rot, float max_match_error);
         Eigen::Vector3d solve_pose(const Corners &corners, const Match &match);
         void predict_robot_pose();
-        std::tuple<float, float> robot_controller(std::optional<Eigen::Vector2f> &target);
+        std::tuple<float, float> robot_controller(const Eigen::Vector2f &target);
 
 signals:
         //void customSignal();
