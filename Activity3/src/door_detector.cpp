@@ -53,15 +53,13 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
 
     // for each door, check if the distance from the robot to each lidar point is smaller than the distance from the robot to the door
     RoboCompLidar3D::TPoints filtered;
-    int counter = 0;
-    for(const auto &p : points)
+    for(const auto &d : doors)
     {
-        counter = 0;
-        for(const auto &d : doors)
+        const float dist_to_door = d.center().norm();
+        // Check if the angular range wraps around the -π/+π boundary
+        const bool angle_wraps = d.p2_angle < d.p1_angle;
+        for(const auto &p : points)
         {
-            const float dist_to_door = d.center().norm();
-            // Check if the angular range wraps around the -π/+π boundary
-            const bool angle_wraps = d.p2_angle < d.p1_angle;
             // Determine if point is within the door's angular range
             bool point_in_angular_range;
             if (angle_wraps)
@@ -78,11 +76,11 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
 
             // Filter out points that are through the door (in angular range and farther than door)
             if(point_in_angular_range and p.distance2d >= dist_to_door)
-                counter++;
-        }
+                continue;
 
-        if (counter != doors.size())
+            //qInfo() << __FUNCTION__ << "Point angle: " << p.phi << " Door angles: " << d.p1_angle << ", " << d.p2_angle << " Point distance: " << p.distance2d << " Door distance: " << dist_to_door;
             filtered.emplace_back(p);
+        }
     }
     return filtered;
 }
