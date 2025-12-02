@@ -143,23 +143,18 @@ class SpecificWorker final : public GenericWorker
         rc::Room_Detector room_detector;
         rc::Hungarian hungarian;
         std::optional<rc::PointcloudCenterEstimator::Point2D> center;
-        int idHabitacion = 0;
+        int idHabitacion = 1;
 
         // state machine
-        enum class STATE {GOTO_DOOR, ORIENT_TO_DOOR, LOCALISE, UPDATE_POSE, SEARCH_DOORS, GOTO_ROOM_CENTER, TURN, IDLE, CROSS_DOOR};
+        enum class STATE {GOTO_ROOM_CENTER, TURN, ORIENT_TO_DOOR, GOTO_DOOR, CROSS_DOOR};
         inline const char* to_string(const STATE s) const
         {
             switch(s) {
-                case STATE::IDLE:               return "IDLE";
-                case STATE::LOCALISE:           return "LOCALISE";
-                case STATE::GOTO_DOOR:          return "GOTO_DOOR";
-                case STATE::UPDATE_POSE:        return "UPDATE_POSE";
+                case STATE::GOTO_ROOM_CENTER:   return "GOTO_ROOM_CENTER";
                 case STATE::TURN:               return "TURN";
                 case STATE::ORIENT_TO_DOOR:     return "ORIENT_TO_DOOR";
-                case STATE::GOTO_ROOM_CENTER:   return "GOTO_ROOM_CENTER";
+                case STATE::GOTO_DOOR:          return "GOTO_DOOR";
                 case STATE::CROSS_DOOR:         return "CROSS_DOOR";
-                case STATE::SEARCH_DOORS:       return "SEARCH_DOORS";
-                default:                        return "UNKNOWN";
             }
         }
         STATE state = STATE::GOTO_ROOM_CENTER;
@@ -203,7 +198,7 @@ class SpecificWorker final : public GenericWorker
         // doors
         DoorDetector door_detector;
         Doors doors;
-        QColor color = Qt::red;
+        QColor color = "green";
 
         // image processor
         rc::ImageProcessor image_processor;
