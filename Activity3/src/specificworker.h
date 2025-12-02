@@ -37,7 +37,6 @@
 #include <random>
 #include <doublebuffer/DoubleBuffer.h>
 #include "time_series_plotter.h"
-#include <cppitertools/itertools.hpp>
 
 #ifdef emit
 #undef emit
@@ -45,7 +44,6 @@
 #include <execution>
 #include <tuple>
 #include <utility>
-#include <vector>
 #include "room_detector.h"
 #include "hungarian.h"
 #include "nominal_room.h"
@@ -135,6 +133,7 @@ class SpecificWorker final : public GenericWorker
         // viewer
         AbstractGraphicViewer *viewer, *viewer_room;
         QGraphicsPolygonItem *robot_draw, *robot_room_draw;
+        QGraphicsRectItem *habitacion;
 
         // robot
         Eigen::Affine2d robot_pose;

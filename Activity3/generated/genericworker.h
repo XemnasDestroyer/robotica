@@ -16,7 +16,6 @@
  *    You should have received a copy of the GNU General Public License
  *    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 #define USE_QTGUI
 
 #ifndef GENERICWORKER_H

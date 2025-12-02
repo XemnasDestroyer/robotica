@@ -10,39 +10,38 @@
 
 Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
 {
+    // compute peaks in lidar data
     Peaks peaks;
-    for (const auto &p: points | iter::sliding_window(2))
+    for (const auto &p : points | iter::sliding_window(2))
     {
         const auto &p1 = p[0];
         const auto &p2 = p[1];
-        auto d = abs(p2.distance2d - p1.distance2d);
-        const auto &shorter = (p1.distance2d < p2.distance2d) ? p1 : p2;
-        if (d > 1000)
-            peaks.emplace_back(Eigen::Vector2f{shorter.x, shorter.y}, shorter.phi);
+        auto difference = abs((p2.distance2d - p1.distance2d));
+        auto closest = p1.distance2d < p2.distance2d ? p1 : p2;
+        if (difference > 1000.f) peaks.push_back(std::make_tuple(Eigen::Vector2f(closest.x,closest.y), closest.phi));
     }
+    if (peaks.empty()) return {};
 
-    // Non-maximum suppression of peaks: remove peaks closer than 500mm
+    // non-maximum suppression of peaks: remove peaks closer than 500mm
     Peaks nms_peaks;
     for (const auto &[p, a] : peaks)
-        if ( const bool too_close = std::ranges::any_of(nms_peaks, [&p](const auto &p2)
-            { return (p - std::get<0>(p2)).norm() < 500.f; }); not too_close)
+        if (const bool too_close = std::ranges::any_of(nms_peaks, [&p](const auto &p2) { return (p - std::get<0>(p2)).norm() < 500.f; }); not too_close)
             nms_peaks.emplace_back(p, a);
     peaks = nms_peaks;
 
-    // doors
+    if (nms_peaks.empty()) return {};
+
+    // compute doors in peaks data
     Doors doors;
-    for (const auto &c : iter::combinations(peaks, 2))
+    for (const auto &c : iter::combinations(nms_peaks, 2))
     {
-        const auto &[p1, phi1] = c[0];
-        const auto &[p2, phi2] = c[1];
-        const float dist = (p1 - p2).norm();
-        if (600 < dist and dist < 1500)
-        {
-            doors.emplace_back(Door(p1, phi1, p2, phi2));
-        }
+        const auto &p1 = c[0];
+        const auto &p2 = c[1];
+        auto dist = std::sqrt(std::pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2) + std::pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2));
+        if (800 < dist && dist < 1200)
+            doors.push_back(Door(std::get<0>(p1), std::get<1>(p1), std::get<0>(p2), std::get<1>(p2)));
     }
-    if(doors.empty())
-        qInfo() << "Door not detected";
+
     return doors;
 }
 

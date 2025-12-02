@@ -21,10 +21,15 @@
 #include <QBrush>
 #include <QPen>
 #include <cmath>
+#include <vector>
 #include <algorithm>
 #include <ranges>
 #include <Eigen/Dense>
 #include <iostream>
+#include <cppitertools/groupby.hpp>
+#include <cppitertools/range.hpp>
+#include <cppitertools/itertools.hpp>
+#include <cppitertools/enumerate.hpp>
 
 NominalRoom room(10000.f, 5000.f, Corners{
         {QPointF{-5000.f, -2500.f}, 0.f, 0.f},
@@ -107,7 +112,7 @@ void SpecificWorker::initialize()
         robot_room_draw = rr;
 
         // Dibuja la habitación nominal
-        viewer_room->scene.addRect(nominal_rooms[0].rect(), QPen(Qt::black, 30));
+        habitacion = viewer_room->scene.addRect(nominal_rooms[0].rect(), QPen(Qt::black, 30));
         show();
 
         // Inicializa pose del robot
@@ -142,7 +147,7 @@ void SpecificWorker::compute()
     // Emparejar esquinas detectadas con esquinas nominales transformadas al marco del robot
     const auto match = hungarian.match(
         corners,
-        nominal_rooms[0].transform_corners_to(robot_pose.inverse())
+        nominal_rooms[idHabitacion].transform_corners_to(robot_pose.inverse())
     );
 
     // Calcular error máximo de emparejamiento
@@ -161,7 +166,6 @@ void SpecificWorker::compute()
     // Actualizar pose del robot solo si está localizado
     if (localised)
         update_robot_pose(match);
-    //update_robot_pose(match);
 
     // Procesar máquina de estados - pasar centro convertido
     auto [st, adv, rot] = process_state();
@@ -187,28 +191,40 @@ void SpecificWorker::compute()
 }
 
 // Lectura de datos y filtrado
-RoboCompLidar3D::TPoints SpecificWorker::read_data() {
+RoboCompLidar3D::TPoints SpecificWorker::read_data()
+{
     const auto data = lidar3d_proxy->getLidarDataWithThreshold2d(params.LIDAR_NAME_HIGH, 12000, 1);
 
-    auto data_without_isolated_points = filter_isolated_points(data.points, 200);
+    doors = door_detector.detect(data.points, &viewer->scene);
 
-    doors = door_detector.detect(data_without_isolated_points, &viewer->scene);
+    RoboCompLidar3D::TPoints salida;
+    salida.reserve(data.points.size());
+
+    // Agrupar por phi y obtener el mínimo de r por grupo en una línea, usando push_back para almacenar en el vector
+    for (auto&& [angle, group] : iter::groupby(data.points, [](const auto& p)
+    {
+        float factor = std::pow(10.0f, 2);  // Potencia de 10 para mover el punto decimal
+        return std::floor(p.phi * factor) / factor;  // Redondear y devolver con la cantidad deseada de decimales
+    })) {
+        auto min_r = std::min_element(std::begin(group), std::end(group),
+                                      [](const auto& p1, const auto& p2) { return p1.r < p2.r; });
+        salida.emplace_back(*min_r);
+    }
+
+    auto data_without_isolated_points = filter_isolated_points(salida, 200);
 
     // Filtrar puntos fuera de la habitación usando el detector de puertas
     data_without_isolated_points = door_detector.filter_points(data_without_isolated_points, &viewer->scene);
 
-    center = calculate_center(data_without_isolated_points);
+    calculate_center(data_without_isolated_points);
 
     return data_without_isolated_points;
 }
 
 std::optional<rc::PointcloudCenterEstimator::Point2D> SpecificWorker::calculate_center(const RoboCompLidar3D::TPoints &data)
 {
-    // Crear configuración opcional
-    rc::PointcloudCenterEstimator::Config cfg;
-
     // Crear el estimador
-    rc::PointcloudCenterEstimator estimator(cfg);
+    rc::PointcloudCenterEstimator estimator;
 
     // Estimar el centro de la habitación a partir de las paredes
     center = estimator.estimate(data);
@@ -326,34 +342,18 @@ SpecificWorker::RetVal SpecificWorker::process_state() {
         {
             return turn();
         }
-        case STATE::GOTO_DOOR:
-        {
-            return goto_door();
-        }
         case STATE::ORIENT_TO_DOOR:
         {
             return orient_to_door();
+        }
+        case STATE::GOTO_DOOR:
+        {
+            return goto_door();
         }
         case STATE::CROSS_DOOR:
         {
             return cross_door();
         }
-        case STATE::LOCALISE:
-        {
-            //std::tie(next_state, adv_speed, rot_speed) = localise(match, data);
-            break;
-        }
-        case STATE::UPDATE_POSE:
-        {
-            //std::tie(next_state, adv_speed, rot_speed) = update_pose(match);
-            break;
-        }
-        case STATE::SEARCH_DOORS:
-        {
-            //std::tie(next_state, adv_speed, rot_speed) = search_doors(data);
-            break;
-        }
-        case STATE::IDLE:  // Inactivo
         default:
         {
             adv_speed = 0.f;
@@ -373,7 +373,7 @@ SpecificWorker::RetVal SpecificWorker::goto_room_center()
         auto dist = center.value().norm();
 
         // Si el robot está cerca del centro
-        if (dist < 100.f)
+        if (dist < 250.f)
             return {STATE::TURN,0.f, 0.f};
 
         Eigen::Vector2f center_float = center.value().cast<float>();
@@ -392,61 +392,45 @@ SpecificWorker::RetVal SpecificWorker::turn()
     if (success)
     {
         localised = true;
-        return {STATE::GOTO_DOOR, 0.f, 0.f};
+        return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
     }
 
-    return {STATE::TURN, 0.f, 0.4f};
+    return {STATE::TURN, 0.f, 0.3f};
+}
+
+SpecificWorker::RetVal SpecificWorker::orient_to_door()
+{
+    static int counter = 0;
+    if (counter < 25) {
+        counter++;
+        return {STATE::ORIENT_TO_DOOR, 0.f, 0.4f};
+    }else if(doors.empty()) {
+        counter = 0;
+        return {STATE::ORIENT_TO_DOOR, 0.f, 0.4f};
+    }
+
+    auto target = doors[0].center();
+    auto [_, w] = robot_controller(target);
+    if (abs(w) < 0.03f) {
+        counter = 0;
+        return {STATE::GOTO_DOOR, 0.f, 0.f};
+    }
+    return {STATE::ORIENT_TO_DOOR, 0.f, w};
 }
 
 SpecificWorker::RetVal SpecificWorker::goto_door()
 {
     if (doors.empty()) {
-        qInfo() << "No hay puerta";
-        return {};
+        return {STATE::ORIENT_TO_DOOR, 0.f, 0.2f};
     }
-    auto rp = robot_pose.translation();
-    auto target = doors[0].center_before(rp, 1000.f);
-    if ( target.norm() < 500.f )
-        return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
+
+    auto robot_position = robot_pose.translation();
+    auto target = doors[0].center_before(robot_position);
+    if (target.norm() < 250.f)
+        return {STATE::CROSS_DOOR, 0.f, 0.f};
 
     const auto &[adv, rot] = robot_controller(target);
     return {STATE::GOTO_DOOR, adv*0.4, rot};
-}
-
-SpecificWorker::RetVal SpecificWorker::orient_to_door()
-{
-    static int contador = 0;
-    if (doors.empty()) {
-        qInfo() << "No hay puerta";
-        return {};
-    }
-
-    auto rp = robot_pose.translation();
-    auto u = doors[0].center();
-    auto v = doors[0].p2 - doors[0].p1;
-
-    float dot = u.dot(v);
-    float norm_u = u.norm();
-    float norm_v = v.norm();
-
-    float cos_angle = dot / (norm_u * norm_v);
-
-    cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
-
-    auto angle = std::acos(cos_angle);
-
-    if (qRadiansToDegrees(angle) > 70 and qRadiansToDegrees(angle) < 110)
-    {
-        auto [_, w] = robot_controller(u);
-        qInfo() << "rotación:" << w;
-        if (w < 0.04f)
-            return {STATE::CROSS_DOOR, 0.f, 0.f};
-        return {STATE::ORIENT_TO_DOOR, 0.f, w};
-    }
-
-
-    float signo = (angle > 0.f) ? 1.f : -1.f;
-    return {STATE::ORIENT_TO_DOOR, 0.f, 0.3f * signo};
 }
 
 SpecificWorker::RetVal SpecificWorker::cross_door()
@@ -454,7 +438,7 @@ SpecificWorker::RetVal SpecificWorker::cross_door()
     static int contador = 0;
 
     contador++;
-    if (contador == 50)
+    if (contador >= 60)
     {
         contador = 0;
         idHabitacion = (idHabitacion + 1) % 2;
@@ -466,8 +450,8 @@ SpecificWorker::RetVal SpecificWorker::cross_door()
         {
             color = "green";
         }
-        viewer_room->scene.addRect(nominal_rooms[idHabitacion].rect(), QPen(Qt::black, 30));
-        show();
+        viewer_room->scene.removeItem(habitacion);
+        habitacion = viewer_room->scene.addRect(nominal_rooms[idHabitacion].rect(), QPen(Qt::black, 30));
         return {STATE::GOTO_ROOM_CENTER, 0.f, 0.f};
     }
 
@@ -476,50 +460,30 @@ SpecificWorker::RetVal SpecificWorker::cross_door()
 
 std::tuple<float, float> SpecificWorker::robot_controller(const Eigen::Vector2f &target)
 {
-    auto dist = target.norm();
+    // rotation
+    auto angle = atan2(target.x(), target.y());
+    double k = 0.5f;
+    double rot_vel = angle * k;
+
+    // break rotation
+    const double R = std::log(0.2) * 2 / -M_PI_4 * M_PI_4;
+    auto break_rot = std::exp(-angle * angle * R);
+
+    // advance
+    double adv_vel = params.MAX_ADV_SPEED * break_rot;
+    return {adv_vel, rot_vel};
+    /*auto dist = target.norm();
 
     // Si el robot está cerca del punto objetivo
-    if (dist < 100.f)
+    if (dist < 150.f)
         return {0.f, 0.f};
 
     auto theta = std::atan2(target.x(), target.y());
-    float rot = 0.5f * theta;
+    float rot = 0.25f * theta;
     float angle_break = exp((-theta * theta)/(M_PI/6.f));
     float adv = 1000.f * angle_break;
 
-    return {adv, rot};
-}
-
-// 🟩 ESTADO UPDATE_POSE - Simple según diagrama
-SpecificWorker::RetVal SpecificWorker::update_pose(const Match &match) {
-    float adv_speed = 0.0f;
-    float rot_speed = 0.0f;
-    STATE next_state = STATE::UPDATE_POSE;
-
-    // POSE UPDATED → Siempre volver a LOCALISE (según diagrama)
-    if (update_robot_pose(match)) {
-        qInfo() << "Pose updated successfully → LOCALISE";
-        localised = true;
-        next_state = STATE::LOCALISE;
-
-        // Si estamos bien localizados, considerar ir a buscar puertas
-        if (match.size() >= 4) {
-            const auto max_error_iter = std::ranges::max_element(match, [](const auto &a, const auto &b) {
-                return std::get<2>(a) < std::get<2>(b);
-            });
-            float max_error = static_cast<float>(std::get<2>(*max_error_iter));
-
-            if (max_error <= 200.0f) {
-                qInfo() << "Well localized, SEARCH_DOORS";
-                // next_state = STATE::SEARCH_DOORS; // Descomentar cuando esté listo
-            }
-        }
-    } else {
-        qWarning() << "Failed to update pose → LOCALISE";
-        next_state = STATE::LOCALISE;
-    }
-
-    return {next_state, adv_speed, rot_speed};
+    return {adv, rot};*/
 }
 
 bool SpecificWorker::update_robot_pose(const Match &match)
@@ -554,10 +518,6 @@ bool SpecificWorker::update_robot_pose(const Match &match)
     // Actualizar pose del robot
     robot_pose.translate(Eigen::Vector2d(r(0), r(1)));
     robot_pose.rotate(r(2));
-
-    qDebug() << "Robot pose updated - x:" << robot_pose.translation().x()
-             << "y:" << robot_pose.translation().y()
-             << "angle:" << r(2);
 
     return true;
 }
