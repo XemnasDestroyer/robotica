@@ -112,7 +112,7 @@ void SpecificWorker::initialize()
         robot_room_draw = rr;
 
         // Dibuja la habitación nominal
-        habitacion = viewer_room->scene.addRect(nominal_rooms[idHabitacion].rect(), QPen(Qt::black, 30));
+        habitacion = viewer_room->scene.addRect(nominal_rooms[0].rect(), QPen(Qt::black, 30));
         show();
 
         // Inicializa pose del robot
@@ -193,9 +193,13 @@ void SpecificWorker::compute()
 // Lectura de datos y filtrado
 RoboCompLidar3D::TPoints SpecificWorker::read_data()
 {
-    const auto data = lidar3d_proxy->getLidarDataWithThreshold2d(params.LIDAR_NAME_HIGH, 12000, 2);
+    const auto data = lidar3d_proxy->getLidarDataWithThreshold2d(params.LIDAR_NAME_HIGH, 12000, 1);
 
-    RoboCompLidar3D::TPoints salida; salida.reserve(data.points.size());
+    doors = door_detector.detect(data.points, &viewer->scene);
+
+    RoboCompLidar3D::TPoints salida;
+    salida.reserve(data.points.size());
+
     // Agrupar por phi y obtener el mínimo de r por grupo en una línea, usando push_back para almacenar en el vector
     for (auto&& [angle, group] : iter::groupby(data.points, [](const auto& p)
     {
@@ -203,18 +207,18 @@ RoboCompLidar3D::TPoints SpecificWorker::read_data()
         return std::floor(p.phi * factor) / factor;  // Redondear y devolver con la cantidad deseada de decimales
     })) {
         auto min_r = std::min_element(std::begin(group), std::end(group),
-            [](const auto& p1, const auto& p2) { return p1.r < p2.r; });
+                                      [](const auto& p1, const auto& p2) { return p1.r < p2.r; });
         salida.emplace_back(*min_r);
     }
 
-    doors = door_detector.detect(salida, &viewer->scene);
+    auto data_without_isolated_points = filter_isolated_points(salida, 200);
 
     // Filtrar puntos fuera de la habitación usando el detector de puertas
-    salida = door_detector.filter_points(salida, &viewer->scene);
+    data_without_isolated_points = door_detector.filter_points(data_without_isolated_points, &viewer->scene);
 
-    calculate_center(salida);
+    calculate_center(data_without_isolated_points);
 
-    return salida;
+    return data_without_isolated_points;
 }
 
 std::optional<rc::PointcloudCenterEstimator::Point2D> SpecificWorker::calculate_center(const RoboCompLidar3D::TPoints &data)
@@ -300,11 +304,34 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &data)
     auto item_line = viewer->scene.addLine(QLineF(QPointF(0.f, 0.f), QPointF(min_obj.x, min_obj.y)),
                                     QPen(QColorConstants::Svg::orange, 10));
     items.push_back(item_line);
+
+    // Líneas frontales
+    /*auto res_right = closest_lidar_index_to_given_angle(filtered_points, params.LIDAR_FRONT_SECTION);
+    auto res_left = closest_lidar_index_to_given_angle(filtered_points, -params.LIDAR_FRONT_SECTION);
+    if (!res_right || !res_left) return;
+
+    float right_length = filtered_points[res_right.value()].r;
+    float left_length = filtered_points[res_left.value()].r;
+    float angle1 = filtered_points[res_left.value()].phi;
+    float angle2 = filtered_points[res_right.value()].phi;
+
+    QLineF line_left{QPointF(0.f, 0.f),
+                     robot_draw->mapToScene(left_length * sin(angle1), left_length * cos(angle1))};
+    QLineF line_right{QPointF(0.f, 0.f),
+                      robot_draw->mapToScene(right_length * sin(angle2), right_length * cos(angle2))};
+
+    auto line1 = scene->addLine(line_left, QPen(Qt::blue, 10));
+    auto line2 = scene->addLine(line_right, QPen(Qt::red, 10));
+    items.push_back(line1);
+    items.push_back(line2);*/
 }
 
 // Máquina de estados y lógica de control
-SpecificWorker::RetVal SpecificWorker::process_state()
-{
+SpecificWorker::RetVal SpecificWorker::process_state() {
+    float adv_speed = 0.0f;
+    float rot_speed = 0.0f;
+    STATE next_state = state;
+
     switch(state)
     {
         case STATE::GOTO_ROOM_CENTER:
@@ -327,7 +354,17 @@ SpecificWorker::RetVal SpecificWorker::process_state()
         {
             return cross_door();
         }
+        default:
+        {
+            adv_speed = 0.f;
+            rot_speed = 0.f;
+            next_state = STATE::GOTO_ROOM_CENTER;
+            break;
+        }
     }
+
+    qDebug() << "State transition:" << to_string(state) << "->" << to_string(next_state);
+    return {next_state, adv_speed, rot_speed};
 }
 
 SpecificWorker::RetVal SpecificWorker::goto_room_center()
@@ -407,7 +444,7 @@ SpecificWorker::RetVal SpecificWorker::cross_door()
         idHabitacion = (idHabitacion + 1) % 2;
         if (idHabitacion == 0)
         {
-            color = "red";
+            color = Qt::red;
         }
         else
         {
@@ -606,4 +643,3 @@ int SpecificWorker::startup_check()
 /**************************************/
 // From the RoboCompOmniRobot you can use this types:
 // RoboCompOmniRobot::TMechParams
-
