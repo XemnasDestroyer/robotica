@@ -8,7 +8,7 @@
 #include <QGraphicsItem>
 
 
-Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
+Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, const NominalRoom &room)
 {
     // compute peaks in lidar data
     Peaks peaks;
@@ -37,18 +37,24 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
     {
         const auto &p1 = c[0];
         const auto &p2 = c[1];
-        auto dist = std::sqrt(std::pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2) + std::pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2));
+        const auto dist = std::sqrt(std::pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2) + std::pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2));
         if (800 < dist && dist < 1200)
-            doors.push_back(Door(std::get<0>(p1), std::get<1>(p1), std::get<0>(p2), std::get<1>(p2)));
+        {
+            auto wall = room.point_to_wall(std::get<0>(p1));
+            float distance = room.distance_from_wall(wall, std::get<0>(p1));
+            doors.push_back(Door(std::get<0>(p1), std::get<1>(p1),
+                                   std::get<0>(p2),std::get<1>(p2),
+                                   wall, distance));
+        }
     }
 
     return doors;
 }
 
 // Method to use the Doors vector to filter out the LiDAR points that como from a room outside the current one
-RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
+RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoints &points)
 {
-    const auto doors = detect(points, scene);
+    const auto doors = detect(points, );
     if(doors.empty()) return points;
     qInfo() << "Hay " << doors.size() << " puertas.";
 

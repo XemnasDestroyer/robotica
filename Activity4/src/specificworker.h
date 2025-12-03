@@ -146,17 +146,7 @@ class SpecificWorker final : public GenericWorker
         int idHabitacion = 1;
 
         // state machine
-        enum class STATE {GOTO_ROOM_CENTER, TURN, ORIENT_TO_DOOR, GOTO_DOOR, CROSS_DOOR};
-        inline const char* to_string(const STATE s) const
-        {
-            switch(s) {
-                case STATE::GOTO_ROOM_CENTER:   return "GOTO_ROOM_CENTER";
-                case STATE::TURN:               return "TURN";
-                case STATE::ORIENT_TO_DOOR:     return "ORIENT_TO_DOOR";
-                case STATE::GOTO_DOOR:          return "GOTO_DOOR";
-                case STATE::CROSS_DOOR:         return "CROSS_DOOR";
-            }
-        }
+        enum class STATE {GOTO_ROOM_CENTER, TURN, ORIENT_TO_DOOR, GOTO_DOOR, ORIENT_TO_DOOR_CENTER, CROSS_DOOR};
         STATE state = STATE::GOTO_ROOM_CENTER;
         using RetVal = std::tuple<STATE, float, float>;
 
@@ -173,8 +163,9 @@ class SpecificWorker final : public GenericWorker
 
         RetVal goto_room_center();
         RetVal turn();
-        RetVal goto_door();
         RetVal orient_to_door();
+        RetVal goto_door();
+        RetVal orient_to_door_center();
         RetVal cross_door();
         //RetVal localise(const Match &match, const RoboCompLidar3D::TPoints& points;
         RetVal update_pose(const Match &match);

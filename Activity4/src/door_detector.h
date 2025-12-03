@@ -8,6 +8,7 @@
 #include "common_types.h"
 #include <Lidar3D.h>
 #include <QGraphicsScene>
+#include "nominal_room.h"
 
 class DoorDetector
 {
@@ -15,8 +16,8 @@ public:
     DoorDetector() = default;
     ~DoorDetector() = default;
 
-    Doors detect(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene = nullptr);
-    RoboCompLidar3D::TPoints filter_points(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene);
+    Doors detect(const RoboCompLidar3D::TPoints &points, const NominalRoom &room);
+    RoboCompLidar3D::TPoints filter_points(const RoboCompLidar3D::TPoints &points);
     [[nodiscard]] Doors doors() const { return doors_cache; };
 
 private:

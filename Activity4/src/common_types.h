@@ -54,9 +54,13 @@ struct Door
     float p1_angle;
     Eigen::Vector2f p2;
     float p2_angle;
+
+    int idWall;
+    float distInWall;
+
     [[nodiscard]] float width() const { return (p2 - p1).norm(); }
     [[nodiscard]] Eigen::Vector2f center() const { return 0.5f * (p1 + p2); }
-    [[nodiscard]] Eigen::Vector2f center_before(const Eigen::Vector2d &robot_pos, float offset = 500.f) const   // a point 500mm before the center along the door direction
+    [[nodiscard]] Eigen::Vector2f center_before(const Eigen::Vector2d &robot_pos, float offset = 800.f) const   // a point 500mm before the center along the door direction
     {
         // computer the normal to the door direction pointing towards the robot
         Eigen::Vector2f dir = p2 - p1;
@@ -100,5 +104,7 @@ struct Door
         }
     }
 };
+using Wall = std::tuple<int, Eigen::ParametrizedLine<float, 2>>;
+using Walls = std::vector<Wall>;
 using Doors = std::vector<Door>;
 #endif //COMMON_TYPES_H

@@ -31,13 +31,6 @@
 #include <cppitertools/itertools.hpp>
 #include <cppitertools/enumerate.hpp>
 
-NominalRoom room(10000.f, 5000.f, Corners{
-        {QPointF{-5000.f, -2500.f}, 0.f, 0.f},
-        {QPointF{5000.f, -2500.f}, 0.f, 0.f},
-        {QPointF{5000.f, 2500.f}, 0.f, 0.f},
-        {QPointF{-5000.f, 2500.f}, 0.f, 0.f}
-});
-
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
 this->startup_check_flag = startup_check;
@@ -205,7 +198,7 @@ RoboCompLidar3D::TPoints SpecificWorker::read_data()
         salida.emplace_back(*min_r);
     }
 
-    doors = door_detector.detect(salida, &viewer->scene);
+    doors = door_detector.detect(salida, &viewer->scene, nominal_rooms);
 
     // Filtrar puntos fuera de la habitación usando el detector de puertas
     salida = door_detector.filter_points(salida, &viewer->scene);
@@ -252,6 +245,7 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &data)
         items.push_back(item);
     }
 
+    // Dibujar el centro
     if(center.has_value())
     {
         QBrush blueBrush(Qt::cyan);
@@ -261,43 +255,22 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &data)
         items.push_back(c);
     }
 
-    // Sección frontal
-    auto offset_begin = closest_lidar_index_to_given_angle(data, -params.LIDAR_FRONT_SECTION);
-    auto offset_end = closest_lidar_index_to_given_angle(data, params.LIDAR_FRONT_SECTION);
-    if (!offset_begin || !offset_end) return;
+    // Dibujar las puertas
+    for (auto &d : doors)
+    {
+        QBrush blueBrush(Qt::cyan);
+        QPen bluePen(Qt::cyan);
+        auto c1 = viewer->scene.addRect(-50, -50, 100, 100, bluePen, blueBrush);
+        auto c2 = viewer->scene.addRect(-50, -50, 100, 100, bluePen, blueBrush);
+        c1->setPos(d.p1.x(), d.p1.y());
+        c2->setPos(d.p2.x(), d.p2.y());
 
-    int ob = std::clamp(offset_begin.value(), 0, static_cast<int>(data.size()) - 1);
-    int oe = std::clamp(offset_end.value(), 0, static_cast<int>(data.size()) - 1);
-    if (ob > oe) std::swap(ob, oe);
+        items.push_back(c1);
+        items.push_back(c2);
 
-    auto min_point = std::min_element(data.begin() + ob,
-                                      data.begin() + oe + 1,
-                                      [](const auto &a, const auto &b) { return a.r < b.r; });
-    if (min_point == data.end()) return;
-
-    QColor dcolor = (min_point->r < 400) ? Qt::red : Qt::magenta;
-    auto ditem = viewer->scene.addRect(-100, -100, 200, 200, dcolor, QBrush(dcolor));
-    ditem->setPos(min_point->x, min_point->y);
-    items.push_back(ditem);
-
-    // Puntos laterales
-    auto wall_right = closest_lidar_index_to_given_angle(data, params.LIDAR_RIGHT_SIDE_SECTION);
-    auto wall_left = closest_lidar_index_to_given_angle(data, -params.LIDAR_RIGHT_SIDE_SECTION);
-    if (!wall_right || !wall_left) return;
-
-    auto right_point = data[wall_right.value()];
-    auto left_point = data[wall_left.value()];
-    auto min_obj = (right_point.r < left_point.r) ? right_point : left_point;
-
-    auto item_obj = viewer->scene.addRect(-100, -100, 200, 200,
-                                   QColorConstants::Svg::orange,
-                                   QBrush(QColorConstants::Svg::orange));
-    item_obj->setPos(min_obj.x, min_obj.y);
-    items.push_back(item_obj);
-
-    auto item_line = viewer->scene.addLine(QLineF(QPointF(0.f, 0.f), QPointF(min_obj.x, min_obj.y)),
-                                    QPen(QColorConstants::Svg::orange, 10));
-    items.push_back(item_line);
+        bluePen.setWidth(20);
+        items.push_back(viewer->scene.addLine(c1->x(), c1->y(), c2->x(), c2->y(), bluePen));
+    }
 }
 
 // Máquina de estados y lógica de control
@@ -321,6 +294,10 @@ SpecificWorker::RetVal SpecificWorker::process_state()
         {
             return goto_door();
         }
+        case STATE::ORIENT_TO_DOOR_CENTER:
+            {
+                return orient_to_door_center();
+            }
         case STATE::CROSS_DOOR:
         {
             return cross_door();
@@ -356,21 +333,21 @@ SpecificWorker::RetVal SpecificWorker::turn()
         return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
     }
 
-    return {STATE::TURN, 0.f, 0.3f};
+    return {STATE::TURN, 0.f, 1.0f};
 }
 
 SpecificWorker::RetVal SpecificWorker::orient_to_door()
 {
     static int counter = 0;
-    if (counter < 25) {
+    if (counter < 50) {
         counter++;
         return {STATE::ORIENT_TO_DOOR, 0.f, 0.4f};
-    }else if(doors.empty()) {
+    }if(doors.empty()) {
         counter = 0;
         return {STATE::ORIENT_TO_DOOR, 0.f, 0.4f};
     }
 
-    auto target = doors[0].center();
+    auto target = doors[0].center_before(robot_pose.translation());
     auto [_, w] = robot_controller(target);
     if (abs(w) < 0.03f) {
         counter = 0;
@@ -387,11 +364,21 @@ SpecificWorker::RetVal SpecificWorker::goto_door()
 
     auto robot_position = robot_pose.translation();
     auto target = doors[0].center_before(robot_position);
-    if (target.norm() < 250.f)
-        return {STATE::CROSS_DOOR, 0.f, 0.f};
+    if (target.norm() < 150.f)
+        return {STATE::ORIENT_TO_DOOR_CENTER, 0.f, 0.f};
 
     const auto &[adv, rot] = robot_controller(target);
     return {STATE::GOTO_DOOR, adv*0.4, rot};
+}
+
+SpecificWorker::RetVal SpecificWorker::orient_to_door_center()
+{
+    auto target = doors[0].center();
+    auto [_, w] = robot_controller(target);
+    if (abs(w) < 0.03f) {
+        return {STATE::CROSS_DOOR, 0.f, 0.f};
+    }
+    return {STATE::ORIENT_TO_DOOR_CENTER, 0.f, w};
 }
 
 SpecificWorker::RetVal SpecificWorker::cross_door()
