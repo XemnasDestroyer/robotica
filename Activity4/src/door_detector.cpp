@@ -18,7 +18,7 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, QGraphicsScen
         const auto &p2 = p[1];
         auto difference = abs((p2.distance2d - p1.distance2d));
         auto closest = p1.distance2d < p2.distance2d ? p1 : p2;
-        if (difference > 1000.f) peaks.push_back(std::make_tuple(Eigen::Vector2f(closest.x,closest.y), closest.phi));
+        if (difference > 600.f) peaks.push_back(std::make_tuple(Eigen::Vector2f(closest.x,closest.y), closest.phi));
     }
     if (peaks.empty()) return {};
 
@@ -50,39 +50,40 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
 {
     const auto doors = detect(points, scene);
     if(doors.empty()) return points;
+    qInfo() << "Hay " << doors.size() << " puertas.";
 
-    // for each door, check if the distance from the robot to each lidar point is smaller than the distance from the robot to the door
     RoboCompLidar3D::TPoints filtered;
-    int counter = 0;
     for(const auto &p : points)
     {
-        counter = 0;
+        bool remove_point = false;
+
         for(const auto &d : doors)
         {
             const float dist_to_door = d.center().norm();
-            // Check if the angular range wraps around the -π/+π boundary
             const bool angle_wraps = d.p2_angle < d.p1_angle;
-            // Determine if point is within the door's angular range
+
             bool point_in_angular_range;
             if (angle_wraps)
             {
-                // If the range wraps around, point is in range if it's > p1_angle OR < p2_angle
-                point_in_angular_range = (p.phi > d.p1_angle) or (p.phi < d.p2_angle);
+                point_in_angular_range = (p.phi > d.p1_angle) || (p.phi < d.p2_angle);
             }
             else
             {
                 float offset = qDegreesToRadians(3);
-                // Normal case: point is in range if it's between p1_angle and p2_angle
-                point_in_angular_range = (p.phi > d.p1_angle - offset) and (p.phi < d.p2_angle + offset);
+                point_in_angular_range = (p.phi > d.p1_angle - offset) && (p.phi < d.p2_angle + offset);
             }
 
-            // Filter out points that are through the door (in angular range and farther than door)
-            if(point_in_angular_range and p.distance2d >= dist_to_door)
-                counter++;
+            // Si el punto está dentro del rango angular de la puerta y más lejos que ella → eliminar
+            if(point_in_angular_range && p.distance2d >= dist_to_door)
+            {
+                remove_point = true;
+                break; // no hace falta comprobar más puertas
+            }
         }
 
-        if (counter != doors.size())
+        if(!remove_point)
             filtered.emplace_back(p);
     }
+
     return filtered;
 }

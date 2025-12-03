@@ -40,8 +40,6 @@ NominalRoom room(10000.f, 5000.f, Corners{
 
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
-// Inicialización del controlador
-last_controller_time = std::chrono::steady_clock::now();
 this->startup_check_flag = startup_check;
 	if(this->startup_check_flag)
 	{
@@ -196,7 +194,7 @@ RoboCompLidar3D::TPoints SpecificWorker::read_data()
     const auto data = lidar3d_proxy->getLidarDataWithThreshold2d(params.LIDAR_NAME_HIGH, 12000, 2);
 
     RoboCompLidar3D::TPoints salida; salida.reserve(data.points.size());
-    // Agrupar por phi y obtener el mínimo de r por grupo en una línea, usando push_back para almacenar en el vector
+    // Agrupar por phi y obtener el mínimo de r por grupo en una línea, usando push_back para almacenar en el std::vector
     for (auto&& [angle, group] : iter::groupby(data.points, [](const auto& p)
     {
         float factor = std::pow(10.0f, 2);  // Potencia de 10 para mover el punto decimal
@@ -518,7 +516,7 @@ RoboCompLidar3D::TPoints SpecificWorker::filter_isolated_points(const RoboCompLi
     const float d_squared = d * d;  // Avoid sqrt by comparing squared distances
     std::vector<bool> hasNeighbor(points.size(), false);
 
-    // Create index vector for parallel iteration
+    // Create index std::vector for parallel iteration
     std::vector<size_t> indices(points.size());
     std::iota(indices.begin(), indices.end(), size_t{0});
 
