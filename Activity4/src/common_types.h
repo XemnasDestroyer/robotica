@@ -55,8 +55,14 @@ struct Door
     Eigen::Vector2f p2;
     float p2_angle;
 
-    int idWall;
-    float distInWall;
+    // Para dibujarlo en el nominal room
+    Eigen::Vector2f pp1;
+    Eigen::Vector2f pp2;
+
+    [[nodiscard]] void setProjection1()
+    {
+
+    }
 
     [[nodiscard]] float width() const { return (p2 - p1).norm(); }
     [[nodiscard]] Eigen::Vector2f center() const { return 0.5f * (p1 + p2); }
@@ -82,7 +88,7 @@ struct Door
         Eigen::Vector2f dir = p2 - p1;
         return std::atan2(dir.y(), dir.x());
     }
-    Door(Eigen::Vector2f point1, const float angle1, Eigen::Vector2f point2, const float angle2)
+    Door(Eigen::Vector2f point1, const float angle1, Eigen::Vector2f point2, const float angle2, Eigen::Vector2f projectionPoint1)
     {
         // Calculate angular difference both ways
         float diff_forward = angle2 - angle1;
@@ -102,6 +108,7 @@ struct Door
             p1 = point2; p1_angle = angle2;
             p2 = point1; p2_angle = angle1;
         }
+        pp1 = projectionPoint1;
     }
 };
 using Wall = std::tuple<int, Eigen::ParametrizedLine<float, 2>>;

@@ -17,7 +17,7 @@ public:
     ~DoorDetector() = default;
 
     Doors detect(const RoboCompLidar3D::TPoints &points, const NominalRoom &room);
-    RoboCompLidar3D::TPoints filter_points(const RoboCompLidar3D::TPoints &points);
+    RoboCompLidar3D::TPoints filter_points(const RoboCompLidar3D::TPoints &points, const NominalRoom &room);
     [[nodiscard]] Doors doors() const { return doors_cache; };
 
 private:

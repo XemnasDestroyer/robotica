@@ -198,10 +198,10 @@ RoboCompLidar3D::TPoints SpecificWorker::read_data()
         salida.emplace_back(*min_r);
     }
 
-    doors = door_detector.detect(salida, &viewer->scene, nominal_rooms);
+    doors = door_detector.detect(salida, nominal_rooms[idHabitacion]);
 
     // Filtrar puntos fuera de la habitación usando el detector de puertas
-    salida = door_detector.filter_points(salida, &viewer->scene);
+    salida = door_detector.filter_points(salida, nominal_rooms[idHabitacion]);
 
     calculate_center(salida);
 
@@ -270,6 +270,13 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &data)
 
         bluePen.setWidth(20);
         items.push_back(viewer->scene.addLine(c1->x(), c1->y(), c2->x(), c2->y(), bluePen));
+
+        if (localised)
+        {
+            auto pc1 = viewer->scene.addRect(-50, -50, 100, 100, bluePen, blueBrush);
+            pc1->setPos(d.pp1.x(), d.pp1.y());
+            items.push_back(pc1);
+        }
     }
 }
 

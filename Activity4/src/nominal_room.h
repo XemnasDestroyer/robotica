@@ -56,12 +56,11 @@
             }
 
             // Devuelve la proyección de un punto a un muro dado
-            [[nodiscard]] float distance_from_wall(const Wall &wall, const Eigen::Vector2f &p) const
+            [[nodiscard]] Eigen::Vector2f projection_in_wall(const Eigen::Vector2f &p) const
             {
                 // return the distance from first corner to point p
-                const auto &[i, w] = wall;
-                const auto proj = w.projection(p);
-                return proj.norm();
+                const auto &[i, w] = point_to_wall(p);
+                return w.projection(p);
             }
 
             [[nodiscard]] QRectF rect() const
