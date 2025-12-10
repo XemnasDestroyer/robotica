@@ -40,12 +40,9 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, const Nominal
         const auto dist = std::sqrt(std::pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2) + std::pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2));
         if (800 < dist && dist < 1200)
         {
-            auto projectionPoint1 = room.projection_in_wall(std::get<0>(p1));
-            auto projectionPoint2 = room.projection_in_wall(std::get<0>(p2));
 
             doors.push_back(Door(std::get<0>(p1), std::get<1>(p1),
-                                   std::get<0>(p2), std::get<1>(p2),
-                                   projectionPoint1, projectionPoint2));
+                                   std::get<0>(p2), std::get<1>(p2)));
         }
     }
 
@@ -57,7 +54,6 @@ RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoi
 {
     const auto doors = detect(points, room);
     if(doors.empty()) return points;
-    qInfo() << "Hay " << doors.size() << " puertas.";
 
     RoboCompLidar3D::TPoints filtered;
     for(const auto &p : points)

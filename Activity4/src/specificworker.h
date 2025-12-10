@@ -136,7 +136,7 @@ class SpecificWorker final : public GenericWorker
         QGraphicsRectItem *habitacion;
 
         // robot
-        Eigen::Affine2d robot_pose;
+        Eigen::Affine2f robot_pose;
 
         // rooms
         std::vector<NominalRoom> nominal_rooms{ NominalRoom{5500.f, 4000.f}, NominalRoom{8000.f, 4000.f}};
@@ -154,7 +154,7 @@ class SpecificWorker final : public GenericWorker
         RoboCompLidar3D::TPoints read_data();
 
         // calcula el centro
-        std::optional<rc::PointcloudCenterEstimator::Point2D> calculate_center(const RoboCompLidar3D::TPoints &data);
+        void calculate_center(const RoboCompLidar3D::TPoints &data);
 
         // draw
         void draw_lidar(const RoboCompLidar3D::TPoints &data);

@@ -108,7 +108,7 @@ void SpecificWorker::initialize()
 
         // Inicializa pose del robot
         robot_pose.setIdentity();
-        robot_pose.translate(Eigen::Vector2d(0.0,0.0));
+        robot_pose.translate(Eigen::Vector2f(0.0,0.0));
 
         // Inicializa plotter del error de matching
         TimeSeriesPlotter::Config plotConfig;
@@ -156,7 +156,9 @@ void SpecificWorker::compute()
 
     // Actualizar pose del robot solo si está localizado
     if (localised)
+    {
         update_robot_pose(match);
+    }
 
     // Procesar máquina de estados - pasar centro convertido
     auto [st, adv, rot] = process_state();
@@ -208,15 +210,13 @@ RoboCompLidar3D::TPoints SpecificWorker::read_data()
     return salida;
 }
 
-std::optional<rc::PointcloudCenterEstimator::Point2D> SpecificWorker::calculate_center(const RoboCompLidar3D::TPoints &data)
+void SpecificWorker::calculate_center(const RoboCompLidar3D::TPoints &data)
 {
     // Crear el estimador
     rc::PointcloudCenterEstimator estimator;
 
     // Estimar el centro de la habitación a partir de las paredes
     center = estimator.estimate(data);
-
-    return center;
 }
 
 // Dibujo de LiDAR
@@ -225,6 +225,7 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &data)
     if (data.empty()) return;
 
     static std::vector<QGraphicsItem *> items;
+    static std::vector<QGraphicsItem *> items2;
 
     // Limpiar puntos antiguos
     for (auto i : items)
@@ -233,6 +234,13 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &data)
         delete i;
     }
     items.clear();
+
+    for (auto i : items2)
+    {
+        viewer_room->scene.removeItem(i);
+        delete i;
+    }
+    items2.clear();
 
     QBrush greenBrush(Qt::green);
     QPen greenPen(Qt::green);
@@ -270,13 +278,6 @@ void SpecificWorker::draw_lidar(const RoboCompLidar3D::TPoints &data)
 
         bluePen.setWidth(20);
         items.push_back(viewer->scene.addLine(c1->x(), c1->y(), c2->x(), c2->y(), bluePen));
-
-        if (localised)
-        {
-            auto pc1 = viewer->scene.addRect(-50, -50, 100, 100, bluePen, blueBrush);
-            pc1->setPos(d.pp1.x(), d.pp1.y());
-            items.push_back(pc1);
-        }
     }
 }
 
@@ -337,6 +338,14 @@ SpecificWorker::RetVal SpecificWorker::turn()
     if (success)
     {
         localised = true;
+        for (auto &d: doors)
+        {
+            d.pp1 = nominal_rooms[idHabitacion].projection_in_wall(robot_pose * d.p1);
+            d.pp2 = nominal_rooms[idHabitacion].projection_in_wall(robot_pose * d.p2);
+        }
+        nominal_rooms[idHabitacion].doors = doors;
+        current_door = 0;
+
         return {STATE::ORIENT_TO_DOOR, 0.f, 0.f};
     }
 
@@ -370,7 +379,7 @@ SpecificWorker::RetVal SpecificWorker::goto_door()
     }
 
     auto robot_position = robot_pose.translation();
-    auto target = doors[0].center_before(robot_position);
+    auto target = robot_pose.inverse() * nominal_rooms[idHabitacion].doors[current_door].center_before(robot_position);
     if (target.norm() < 150.f)
         return {STATE::ORIENT_TO_DOOR_CENTER, 0.f, 0.f};
 
@@ -471,7 +480,7 @@ bool SpecificWorker::update_robot_pose(const Match &match)
     }
 
     // Actualizar pose del robot
-    robot_pose.translate(Eigen::Vector2d(r(0), r(1)));
+    robot_pose.translate(Eigen::Vector2f(r(0), r(1)));
     robot_pose.rotate(r(2));
 
     return true;

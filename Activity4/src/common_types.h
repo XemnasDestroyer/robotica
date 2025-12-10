@@ -59,28 +59,25 @@ struct Door
     Eigen::Vector2f pp1;
     Eigen::Vector2f pp2;
 
-    [[nodiscard]] void setProjection1()
-    {
-
-    }
-
     [[nodiscard]] float width() const { return (p2 - p1).norm(); }
     [[nodiscard]] Eigen::Vector2f center() const { return 0.5f * (p1 + p2); }
-    [[nodiscard]] Eigen::Vector2f center_before(const Eigen::Vector2d &robot_pos, float offset = 800.f) const   // a point 500mm before the center along the door direction
+    [[nodiscard]] Eigen::Vector2f center_before(const Eigen::Vector2f &robot_pos, float offset = 800.f) const   // a point 500mm before the center along the door direction
     {
         // computer the normal to the door direction pointing towards the robot
-        Eigen::Vector2f dir = p2 - p1;
+        Eigen::Vector2f dir = pp2 - pp1;
         const float dir_norm = dir.norm();
+
+        const auto center = 0.5 *(pp1+pp2);
         if (dir_norm == 0.f)
-            return center(); // degenerate door, return center
+            return center; // degenerate door, return center
         dir /= dir_norm;
         // perpendicular (normal) to door direction
         Eigen::Vector2f normal(-dir.y(), dir.x());
         // choose the normal that points toward the robot
-        const Eigen::Vector2f to_robot = robot_pos.cast<float>() - center();
+        const Eigen::Vector2f to_robot = robot_pos.cast<float>() - center;
         if (to_robot.dot(normal) < 0.f)
             normal = -normal;
-        Eigen::Vector2f before = center() + offset * normal;
+        Eigen::Vector2f before = center + offset * normal;
         return before;
     }
     [[nodiscard]] float direction() const
@@ -88,7 +85,7 @@ struct Door
         Eigen::Vector2f dir = p2 - p1;
         return std::atan2(dir.y(), dir.x());
     }
-    Door(Eigen::Vector2f point1, const float angle1, Eigen::Vector2f point2, const float angle2, Eigen::Vector2f projectionPoint1)
+    Door(Eigen::Vector2f point1, const float angle1, Eigen::Vector2f point2, const float angle2)
     {
         // Calculate angular difference both ways
         float diff_forward = angle2 - angle1;
@@ -108,7 +105,11 @@ struct Door
             p1 = point2; p1_angle = angle2;
             p2 = point1; p2_angle = angle1;
         }
-        pp1 = projectionPoint1;
+    }
+    void setProjections(const Eigen::Vector2f &p1, Eigen::Vector2f &p2)
+    {
+        pp1 = p1;
+        pp2 = p2;
     }
 };
 using Wall = std::tuple<int, Eigen::ParametrizedLine<float, 2>>;
