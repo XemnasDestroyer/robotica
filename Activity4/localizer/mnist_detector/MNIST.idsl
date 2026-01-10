@@ -1,0 +1,8 @@
+module RoboCompMNIST
+{
+    interface MNIST
+    {
+        int getNumber();
+    };
+
+};
