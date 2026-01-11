@@ -12,19 +12,19 @@
         {
             float width; //  mm
             float length;
+            bool visited = false;
             explicit NominalRoom(const float width_=10000.f, const float length_=5000.f, Corners  corners_ = {}) :
                 width(width_), length(length_)
             {};
-            [[nodiscard]] Corners corners() const
-            {
-                // compute corners from width and length
-                return {
-                    {QPointF{-width/2.f, -length/2.f}, 0.f, 0.f},
-                    {QPointF{width/2.f, -length/2.f}, 0.f, 0.f},
-                    {QPointF{width/2.f, length/2.f}, 0.f, 0.f},
-                    {QPointF{-width/2.f, length/2.f}, 0.f, 0.f}
-                };
-            }
+              [[nodiscard]] Corners corners() const{
+                  // compute corners from width and length
+                  return {
+                        {QPointF{-width/2.f, length/2.f}, 0.f, 0.f},
+                        {QPointF{width/2.f, length/2.f}, 0.f, 0.f},
+                        {QPointF{width/2.f, -length/2.f}, 0.f, 0.f},
+                        {QPointF{-width/2.f,-length/2.f}, 0.f, 0.f}
+                  };
+              }
 
             // Devuelve los distintos muros que hay en la habitación según las esquinas que haya.
             [[nodiscard]] Walls walls() const

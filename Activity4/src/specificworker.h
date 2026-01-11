@@ -50,6 +50,7 @@
 #include "door_detector.h"
 #include "image_processor.h"
 #include "pointcloud_center_estimator.h"
+#include "door_crossing_tracker.h"
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -126,7 +127,6 @@ class SpecificWorker final : public GenericWorker
         };
         ControllerParams controller_params;
 
-        bool localised = false;
         float prev_angle_error = 0.0f;
         std::chrono::steady_clock::time_point last_controller_time;
 
@@ -160,7 +160,7 @@ class SpecificWorker final : public GenericWorker
         void draw_lidar(const RoboCompLidar3D::TPoints &data);
 
         RetVal process_state();
-
+        RetVal localise(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
         RetVal goto_room_center();
         RetVal turn();
         RetVal orient_to_door();
@@ -197,7 +197,19 @@ class SpecificWorker final : public GenericWorker
         // timing
         std::chrono::time_point<std::chrono::high_resolution_clock> last_time = std::chrono::high_resolution_clock::now();
 
-        bool update_robot_pose(const Match &match);
+        int current_room = -1;
+        int current_door = -1;
+        // relocalization for current room
+        bool localised = false;
+
+        // new door crossing detector
+        DoorCrossing door_crossing; // used the file en beta-robotica-class
+
+        // updated signature
+        std::optional<std::pair<Eigen::Affine2f, loat>> update_robot_pose(int room_index,
+                                                    const Corners &corners,
+                                                    const Eigen::Affine2f &r_pose,
+                                                    bool transform_corners);
         void move_robot(float adv, float rot, float max_match_error);
         Eigen::Vector3d solve_pose(const Corners &corners, const Match &match);
         void predict_robot_pose();

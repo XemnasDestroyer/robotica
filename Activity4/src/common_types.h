@@ -54,6 +54,9 @@ struct Door
     float p1_angle;
     Eigen::Vector2f p2;
     float p2_angle;
+    bool visited = false;
+    int connects_to_room = -1; // index of the room this door connects to
+    int connects_to_door = -1; // index of the door in the connected room
 
     // Para dibujarlo en el nominal room
     Eigen::Vector2f pp1;
