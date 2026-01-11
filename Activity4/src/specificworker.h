@@ -1,34 +1,30 @@
 /*
 *    Copyright (C) 2025 by YOUR NAME HERE
- *
- *    This file is part of RoboComp
- *
- *    RoboComp is free software: you can redistribute it and/or modify
- *    it under the terms of the GNU General Public License as published by
- *    the Free Software Foundation, either version 3 of the License, or
- *    (at your option) any later version.
- *
- *    RoboComp is distributed in the hope that it will be useful,
- *    but WITHOUT ANY WARRANTY; without even the implied warranty of
- *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *    GNU General Public License for more details.
- *
- *    You should have received a copy of the GNU General Public License
- *    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
- */
+*
+*    This file is part of RoboComp
+*
+*    RoboComp is free software: you can redistribute it and/or modify
+*    it under the terms of the GNU General Public License as published by
+*    the Free Software Foundation, either version 3 of the License, or
+*    (at your option) any later version.
+*
+*    RoboComp is distributed in the hope that it will be useful,
+*    but WITHOUT ANY WARRANTY; without even the implied warranty of
+*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*    GNU General Public License for more details.
+*
+*    You should have received a copy of the GNU General Public License
+*    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 /**
     \brief
     @author authorname
 */
 
-
-
 #ifndef SPECIFICWORKER_H
 #define SPECIFICWORKER_H
 
-
-// If you want to reduce the period automatically due to lack of use, you must uncomment the following line
 //#define HIBERNATION_ENABLED
 
 #include <genericworker.h>
@@ -41,6 +37,7 @@
 #ifdef emit
 #undef emit
 #endif
+
 #include <execution>
 #include <tuple>
 #include <utility>
@@ -51,6 +48,7 @@
 #include "image_processor.h"
 #include "pointcloud_center_estimator.h"
 #include "door_crossing_tracker.h"
+#include "graph.h"
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -58,165 +56,150 @@
 class SpecificWorker final : public GenericWorker
 {
     Q_OBJECT
-    public:
-        /**
-         * \brief Constructor for SpecificWorker.
-         * \param configLoader Configuration loader for the component.
-         * \param tprx Tuple of proxies required for the component.
-         * \param startup_check Indicates whether to perform startup checks.
-         */
-        SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check);
-        void JoystickAdapter_sendData(RoboCompJoystickAdapter::TData data);
-        ~SpecificWorker();
+public:
+    SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check);
+    void JoystickAdapter_sendData(RoboCompJoystickAdapter::TData data);
+    ~SpecificWorker();
 
-    public slots:
-        void initialize();
-        void compute();
-        void emergency();
-        void restore();
-        int startup_check();
+public slots:
+    void initialize();
+    void compute();
+    void emergency();
+    void restore();
+    int startup_check();
 
-    private:
-        bool startup_check_flag;
+private:
+    bool startup_check_flag;
 
     struct Params
-        {
-            float ROBOT_WIDTH = 460;  // mm
-            float ROBOT_LENGTH = 480;  // mm
-            float MAX_ADV_SPEED = 1000; // mm/s
-            float MAX_ROT_SPEED = 1; // rad/s
-            float MAX_SIDE_SPEED = 50; // mm/s
-            float MAX_TRANSLATION = 500; // mm/s
-            float MAX_ROTATION = 0.2;
-            float STOP_THRESHOLD = 700; // mm
-            float ADVANCE_THRESHOLD = ROBOT_WIDTH * 3; // mm
-            float LIDAR_FRONT_SECTION = 0.2; // rads, aprox 12 degrees
-            // wall
-            float LIDAR_RIGHT_SIDE_SECTION = M_PI/3; // rads, 90 degrees
-            float LIDAR_LEFT_SIDE_SECTION = -M_PI/3; // rads, 90 degrees
-            float WALL_MIN_DISTANCE = ROBOT_WIDTH*1.2;
+    {
+        float ROBOT_WIDTH = 460;  // mm
+        float ROBOT_LENGTH = 480;  // mm
+        float MAX_ADV_SPEED = 1000; // mm/s
+        float MAX_ROT_SPEED = 1; // rad/s
+        float MAX_SIDE_SPEED = 50; // mm/s
+        float MAX_TRANSLATION = 500; // mm/s
+        float MAX_ROTATION = 0.2;
+        float STOP_THRESHOLD = 700; // mm
+        float ADVANCE_THRESHOLD = ROBOT_WIDTH * 3; // mm
+        float LIDAR_FRONT_SECTION = 0.2; // rads, aprox 12 degrees
+        float LIDAR_RIGHT_SIDE_SECTION = M_PI/3; // rads, 60 degrees
+        float LIDAR_LEFT_SIDE_SECTION = -M_PI/3; // rads, 60 degrees
+        float WALL_MIN_DISTANCE = ROBOT_WIDTH*1.2;
+        float MATCH_ERROR_SIGMA = 150.f; // mm
+        float DOOR_REACHED_DIST = 300.f;
+        std::string LIDAR_NAME_LOW = "bpearl";
+        std::string LIDAR_NAME_HIGH = "helios";
+        QRectF GRID_MAX_DIM{-5000, 2500, 10000, -5000};
 
-            // match error correction
-            float MATCH_ERROR_SIGMA = 150.f; // mm
-            float DOOR_REACHED_DIST = 300.f;
-            std::string LIDAR_NAME_LOW = "bpearl";
-            std::string LIDAR_NAME_HIGH = "helios";
-            QRectF GRID_MAX_DIM{-5000, 2500, 10000, -5000};
+        // relocalization
+        float RELOCAL_CENTER_EPS = 300.f;    // mm: stop when |mean| < eps
+        float RELOCAL_KP = 0.002f;           // gain to convert mean (mm) -> speed (magnitude)
+        float RELOCAL_MAX_ADV = 300.f;       // mm/s cap while re-centering
+        float RELOCAL_MAX_SIDE = 300.f;      // mm/s cap while re-centering
+        float RELOCAL_ROT_SPEED = 0.3f;     // rad/s while aligning
+        float RELOCAL_DELTA = 5.0f * M_PI/180.f; // small probe angle in radians
+        float RELOCAL_MATCH_MAX_DIST = 2000.f;   // mm for Hungarian gating
+        float RELOCAL_DONE_COST = 500.f;
+        float RELOCAL_DONE_MATCH_MAX_ERROR = 1000.f;
+    };
+    Params params;
 
-            // relocalization
-            float RELOCAL_CENTER_EPS = 300.f;    // mm: stop when |mean| < eps
-            float RELOCAL_KP = 0.002f;           // gain to convert mean (mm) -> speed (magnitude)
-            float RELOCAL_MAX_ADV = 300.f;       // mm/s cap while re-centering
-            float RELOCAL_MAX_SIDE = 300.f;      // mm/s cap while re-centering
-            float RELOCAL_ROT_SPEED = 0.3f;     // rad/s while aligning
-            float RELOCAL_DELTA = 5.0f * M_PI/180.f; // small probe angle in radians
-            float RELOCAL_MATCH_MAX_DIST = 2000.f;   // mm for Hungarian gating
-            float RELOCAL_DONE_COST = 500.f;
-            float RELOCAL_DONE_MATCH_MAX_ERROR = 1000.f;
-        };
-               Params params;
+    struct ControllerParams
+    {
+        float Kp_angular = 1.0f;
+        float Kd_angular = 0.1f;
+        float v_max = 800.0f;
+        float sigma_theta = M_PI/4;
+        float d_stop = 500.0f;
+        float k_steepness = 0.01f;
+    };
+    ControllerParams controller_params;
 
-        struct ControllerParams
-        {
-            float Kp_angular = 1.0f;      // Ganancia proporcional para rotación
-            float Kd_angular = 0.1f;      // Ganancia derivativa para rotación
-            float v_max = 800.0f;         // Velocidad máxima en mm/s
-            float sigma_theta = M_PI/4;   // 45 grados en radianes para freno angular
-            float d_stop = 500.0f;        // Distancia de frenado en mm
-            float k_steepness = 0.01f;    // Pendiente del freno de distancia
-        };
-        ControllerParams controller_params;
+    float prev_angle_error = 0.0f;
+    std::chrono::steady_clock::time_point last_controller_time;
 
-        float prev_angle_error = 0.0f;
-        std::chrono::steady_clock::time_point last_controller_time;
+    // viewer
+    AbstractGraphicViewer *viewer, *viewer_room;
+    QGraphicsPolygonItem *robot_draw, *robot_room_draw;
+    QGraphicsRectItem *habitacion;
+    Graph graph;
 
-        // viewer
-        AbstractGraphicViewer *viewer, *viewer_room;
-        QGraphicsPolygonItem *robot_draw, *robot_room_draw;
-        QGraphicsRectItem *habitacion;
+    // robot
+    Eigen::Affine2f robot_pose;
 
-        // robot
-        Eigen::Affine2f robot_pose;
+    // rooms
+    std::vector<NominalRoom> nominal_rooms{ NominalRoom{5500.f, 4000.f}, NominalRoom{8000.f, 4000.f} };
+    rc::Room_Detector room_detector;
+    rc::Hungarian hungarian;
+    std::optional<rc::PointcloudCenterEstimator::Point2D> center;
+    int idHabitacion = 1;
 
-        // rooms
-        std::vector<NominalRoom> nominal_rooms{ NominalRoom{5500.f, 4000.f}, NominalRoom{8000.f, 4000.f}};
-        rc::Room_Detector room_detector;
-        rc::Hungarian hungarian;
-        std::optional<rc::PointcloudCenterEstimator::Point2D> center;
-        int idHabitacion = 1;
+    // state machine
+    enum class STATE {GOTO_ROOM_CENTER, TURN, ORIENT_TO_DOOR, GOTO_DOOR, ORIENT_TO_DOOR_CENTER, CROSS_DOOR};
+    STATE state = STATE::GOTO_ROOM_CENTER;
+    using RetVal = std::tuple<STATE, float, float>;
 
-        // state machine
-        enum class STATE {GOTO_ROOM_CENTER, TURN, ORIENT_TO_DOOR, GOTO_DOOR, ORIENT_TO_DOOR_CENTER, CROSS_DOOR};
-        STATE state = STATE::GOTO_ROOM_CENTER;
-        using RetVal = std::tuple<STATE, float, float>;
+    // aux
+    RoboCompLidar3D::TPoints read_data();
+    void calculate_center(const RoboCompLidar3D::TPoints &data);
+    void draw_lidar(const RoboCompLidar3D::TPoints &data);
 
-        // aux
-        RoboCompLidar3D::TPoints read_data();
+    RetVal process_state();
+    RetVal localise(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene = nullptr);
+    RetVal goto_room_center();
+    RetVal turn(const Corners &corners = Corners());
+    RetVal orient_to_door();
+    RetVal goto_door(const RoboCompLidar3D::TPoints &points = {}, QGraphicsScene *scene = nullptr);
+    RetVal orient_to_door_center();
+    RetVal cross_door(const RoboCompLidar3D::TPoints &points = {});
 
-        // calcula el centro
-        void calculate_center(const RoboCompLidar3D::TPoints &data);
+    // aux functions
+    std::expected<int, std::string> closest_lidar_index_to_given_angle(const auto &points, float angle);
+    RoboCompLidar3D::TPoints filter_isolated_points(const RoboCompLidar3D::TPoints &points, float d);
+    void print_match(const Match &match, const float error = 1.f) const;
+    void draw_graph(QGraphicsScene *scene)
+    // random number generator
+    std::random_device rd;
 
-        // draw
-        void draw_lidar(const RoboCompLidar3D::TPoints &data);
+    // DoubleBuffer for velocity commands
+    DoubleBuffer<std::tuple<float, float, float, long>, std::tuple<float, float, float, long>> commands_buffer;
+    std::tuple<float, float, float, long> last_velocities{0.f, 0.f, 0.f, 0.f};
 
-        RetVal process_state();
-        RetVal localise(const RoboCompLidar3D::TPoints &points, QGraphicsScene *scene)
-        RetVal goto_room_center();
-        RetVal turn();
-        RetVal orient_to_door();
-        RetVal goto_door();
-        RetVal orient_to_door_center();
-        RetVal cross_door();
-        //RetVal localise(const Match &match, const RoboCompLidar3D::TPoints& points;
-        RetVal update_pose(const Match &match);
+    // plotter
+    std::unique_ptr<TimeSeriesPlotter> time_series_plotter;
+    int match_error_graph;
 
-        // aux
-        std::expected<int, std::string> closest_lidar_index_to_given_angle(const auto &points, float angle);
-        RoboCompLidar3D::TPoints filter_isolated_points(const RoboCompLidar3D::TPoints &points, float d);
-        void print_match(const Match &match, const float error =1.f) const;
+    // doors
+    DoorDetector door_detector;
+    Doors doors;
+    QColor color = "green";
 
-        // random number generator
-        std::random_device rd;
+    // image processor
+    rc::ImageProcessor image_processor;
 
-        // DoubleBuffer for velocity commands
-        DoubleBuffer<std::tuple<float, float, float, long>, std::tuple<float, float, float, long>> commands_buffer;
-        std::tuple<float, float, float, long> last_velocities{0.f, 0.f, 0.f, 0.f};
+    // timing
+    std::chrono::time_point<std::chrono::high_resolution_clock> last_time = std::chrono::high_resolution_clock::now();
 
-        // plotter
-        std::unique_ptr<TimeSeriesPlotter> time_series_plotter;
-        int match_error_graph; // To store the index of the speed graph
+    int current_room = -1;
+    int current_door = -1;
+    bool localised = false;
 
-        // doors
-        DoorDetector door_detector;
-        Doors doors;
-        QColor color = "green";
+    // door crossing
+    DoorCrossing door_crossing;
 
-        // image processor
-        rc::ImageProcessor image_processor;
-
-        // timing
-        std::chrono::time_point<std::chrono::high_resolution_clock> last_time = std::chrono::high_resolution_clock::now();
-
-        int current_room = -1;
-        int current_door = -1;
-        // relocalization for current room
-        bool localised = false;
-
-        // new door crossing detector
-        DoorCrossing door_crossing; // used the file en beta-robotica-class
-
-        // updated signature
-        std::optional<std::pair<Eigen::Affine2f, loat>> update_robot_pose(int room_index,
-                                                    const Corners &corners,
-                                                    const Eigen::Affine2f &r_pose,
-                                                    bool transform_corners);
-        void move_robot(float adv, float rot, float max_match_error);
-        Eigen::Vector3d solve_pose(const Corners &corners, const Match &match);
-        void predict_robot_pose();
-        std::tuple<float, float> robot_controller(const Eigen::Vector2f &target);
+    // robot pose update
+    std::optional<std::pair<Eigen::Affine2f, float>> update_robot_pose(int room_index,
+                                                                      const Corners &corners,
+                                                                      const Eigen::Affine2f &r_pose,
+                                                                      bool transform_corners);
+    void move_robot(float adv, float rot, float max_match_error);
+    Eigen::Vector3d solve_pose(const Corners &corners, const Match &match);
+    void predict_robot_pose();
+    std::tuple<float, float> robot_controller(const Eigen::Vector2f &target);
 
 signals:
-        //void customSignal();
+    // void customSignal();
 };
 
 #endif
