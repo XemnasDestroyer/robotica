@@ -3,24 +3,34 @@
 //
 
 #include "door_detector.h"
+
+#include <expected>
 #include <cppitertools/sliding_window.hpp>
 #include <cppitertools/combinations.hpp>
 #include <QGraphicsItem>
+#include <cppitertools/enumerate.hpp>
 
 
-Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, const NominalRoom &room)
+Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points,
+                           const Eigen::Affine2d &robot_pose,
+                           bool localised,
+                           QGraphicsScene *robot_scene,
+                           QGraphicsScene *scene_room)
 {
-    // compute peaks in lidar data
+    if(points.empty()) return {};
+
+    // get the peaks
     Peaks peaks;
-    for (const auto &p : points | iter::sliding_window(2))
+    for (const auto &p : iter::sliding_window(points, 2))
     {
-        const auto &p1 = p[0];
-        const auto &p2 = p[1];
-        auto difference = abs((p2.distance2d - p1.distance2d));
-        auto closest = p1.distance2d < p2.distance2d ? p1 : p2;
-        if (difference > 600.f) peaks.push_back(std::make_tuple(Eigen::Vector2f(closest.x,closest.y), closest.phi));
+        const auto &p1 = p[0]; const auto &p2 = p[1];
+        const float d1 = p1.distance2d; const float d2 = p2.distance2d;
+        if (const float dd_da1 = abs(d2 - d1); dd_da1 >min_peak_distance)
+        {
+            const auto m = std::ranges::min_element(p, [](auto &pa, auto &pb){return pa.distance2d < pb.distance2d;});
+            peaks.emplace_back(Eigen::Vector2f(m->x, m->y), m->phi);
+        }
     }
-    if (peaks.empty()) return {};
 
     // non-maximum suppression of peaks: remove peaks closer than 500mm
     Peaks nms_peaks;
@@ -29,67 +39,68 @@ Doors DoorDetector::detect(const RoboCompLidar3D::TPoints &points, const Nominal
             nms_peaks.emplace_back(p, a);
     peaks = nms_peaks;
 
-    if (nms_peaks.empty()) return {};
-
-    // compute doors in peaks data
+    // find doors as pairs of peaks separated by a gap < 1200mm and > 800mm
     Doors doors;
-    for (const auto &c : iter::combinations(nms_peaks, 2))
+    for(const auto &p : peaks | iter::combinations(2))
     {
-        const auto &p1 = c[0];
-        const auto &p2 = c[1];
-        const auto dist = std::sqrt(std::pow(std::get<0>(p2).x()-std::get<0>(p1).x(), 2) + std::pow(std::get<0>(p2).y()-std::get<0>(p1).y(), 2));
-        if (800 < dist && dist < 1200)
-        {
-            auto wall = room.point_to_wall(std::get<0>(p1));
-            float distance = room.distance_from_wall(wall, std::get<0>(p1));
-            doors.push_back(Door(std::get<0>(p1), std::get<1>(p1),
-                                   std::get<0>(p2),std::get<1>(p2),
-                                   wall, distance));
-        }
+        const auto &[p0,a0] = p[0]; const auto &[p1, a1] = p[1];
+        const float gap = (p1-p0).norm();
+        //qInfo() << "Gap: " << gap;
+        if(gap < max_door_width and gap > min_door_width)
+            doors.emplace_back(p0, a0, p1, a1);
     }
-
+    //qInfo() << __FUNCTION__ << "Peaks found: " << peaks.size() << "Doors found: " << doors.size();
+    doors_cache = doors;
     return doors;
 }
 
 // Method to use the Doors vector to filter out the LiDAR points that como from a room outside the current one
 RoboCompLidar3D::TPoints DoorDetector::filter_points(const RoboCompLidar3D::TPoints &points)
 {
-    const auto doors = detect(points, );
+    const auto doors = detect(points);
     if(doors.empty()) return points;
-    qInfo() << "Hay " << doors.size() << " puertas.";
 
+    // for each door, check if the distance from the robot to each lidar point is smaller than the distance from the robot to the door
     RoboCompLidar3D::TPoints filtered;
+    float offset = 0.2f; // 20 cm offset to extend the door range
     for(const auto &p : points)
     {
-        bool remove_point = false;
-
-        for(const auto &d : doors)
+        for(const auto &[door_index, d] : doors | iter::enumerate)
         {
             const float dist_to_door = d.center().norm();
+            // Check if the angular range wraps around the -π/+π boundary
             const bool angle_wraps = d.p2_angle < d.p1_angle;
 
+            // Determine if point is within the door's angular range
             bool point_in_angular_range;
             if (angle_wraps)
             {
-                point_in_angular_range = (p.phi > d.p1_angle) || (p.phi < d.p2_angle);
+                // If the range wraps around, point is in range if it's > p1_angle OR < p2_angle
+                point_in_angular_range = (p.phi > (d.p1_angle - offset)) or (p.phi < (d.p2_angle + offset));
             }
             else
             {
-                float offset = qDegreesToRadians(3);
-                point_in_angular_range = (p.phi > d.p1_angle - offset) && (p.phi < d.p2_angle + offset);
+                // Normal case: point is in range if it's between p1_angle and p2_angle
+                point_in_angular_range = (p.phi > (d.p1_angle - offset)) and (p.phi < (d.p2_angle + offset));
             }
 
-            // Si el punto está dentro del rango angular de la puerta y más lejos que ella → eliminar
-            if(point_in_angular_range && p.distance2d >= dist_to_door)
-            {
-                remove_point = true;
-                break; // no hace falta comprobar más puertas
-            }
+            // Filter out points that are through the door (in angular range and farther than door)
+            if(point_in_angular_range and p.distance2d >= dist_to_door)
+                break;
+
+            //qInfo() << __FUNCTION__ << "Point angle: " << p.phi << " Door angles: " << d.p1_angle << ", " << d.p2_angle << " Point distance: " << p.distance2d << " Door distance: " << dist_to_door;
+            if (door_index == doors.size()-1)
+                filtered.emplace_back(p);
         }
-
-        if(!remove_point)
-            filtered.emplace_back(p);
     }
-
+    //qInfo() << __FUNCTION__ << "Before" << points.size() << "After : " << filtered.size();
     return filtered;
 }
+
+std::expected<Door, std::string> DoorDetector::get_current_door() const
+{
+    if (doors_cache.empty())
+        return std::unexpected<std::string>{"No doors detected"};
+    return doors_cache[0];
+}
+
