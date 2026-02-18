@@ -20,8 +20,9 @@ Abrelo cómo prefieras, ejecutando webots en una terminal o buscando la aplicaci
 Para que esta parte funcione, debes asegurarte de que has generado todos los archivos necesarios. Si no estás seguro:
 1. Descarga el/los archivo.cdsl (chocachoca.cdsl \ localiser.cdsl) que se encuentra en este git.
 2. Desde una terminal, vete donde has descargado el/los archivo.dsl, preferiblemente, en una carpeta donde solo esté este archivo para mantenerlo limpio.
-3. Ejecuta para actividad 1:```robocompdsl chocachoca.cdsl .```
-4. Ejecuta para actividad 2:
+3. Ejecuta para actividad 1:
+```robocompdsl chocachoca.cdsl .```
+5. Ejecuta para actividad 2:
 ```
 robocompdsl localiser.cdsl .
 ```
